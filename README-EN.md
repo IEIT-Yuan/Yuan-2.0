@@ -28,8 +28,8 @@ Yuan2.0 is a new generation pre-trained model developed by IEI. We have publishe
 
 ---
 
-The use of the source code in this repository requires compliance with the open source license agreement **[Apache 2.0](https://github.com/baichuan-inc/Baichuan-7B/blob/main/LICENSE )**.
-The Yuan2.0 model supports commercial use and does not require authorization. Please understand and comply with the **[Source 2.0 Model License Agreement](./LICENSE-YUAN)**. Do not use the open source model and code, as well as derivatives generated from open source projects, for any military purposes, for purposes that may cause harm to the country and society, or for any services that have not undergone security assessment and filing.
+The use of the source code in this repository requires compliance with the open source license agreement **[Apache 2.0](https://github.com/baichuan-inc/Baichuan-7B/blob/main/LICENSE)**.
+The Yuan2.0 model supports commercial use and does not require authorization. Please understand and comply with the [《Yuan 2.0 Model License Agreement》](./LICENSE-YUAN). Do not use the open source model and code, as well as derivatives generated from open source projects, for any purposes that may cause harm to the country and society, or for any services that have not undergone security assessment and filing.
 Although we have taken measures to ensure the compliance and accuracy of the data during training, the model has a huge number of parameters and is affected by probability and randomness factors. We cannot guarantee the accuracy of the output content, and the model is easily misled by input instructions. This project does not assume any data security, public opinion risks, or any model misleading, abusing, spreading caused by open-source models and code Risks and responsibilities arising from improper utilization  **You will be solely responsible for the risks and consequences arising from the use, copying, distribution, and modification of the model in this open source project**
 
 
@@ -66,11 +66,11 @@ We also have provided the supervised fine-tuning script. See documentation [here
 
 We have provided Yuan2.0 supervised-finetuned checkpoints. The checkpoint files of the models through the following links:
 
-| Model |         Download Link         |
-| :---: | :---------------------------: |
-| 102B  | [here](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) |
-|  51B  | [here](https://www.baidu.com) |
-|  2B   | [here](https://www.baidu.com) |
+|    Model     | 序列长度  |         Download Link         |
+| :----------: | :------: | :---------------------------: |
+| Yuan2.0-102B |    4K    | [here](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) |
+| Yuan2.0-51B  |    4K    | [here](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) |
+|  Yuan2.0-2B  |    8K    | [here](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) |
 
 Yuan2.0-2B model support sequence length up to 8192 tokens,  Yuan2.0-51B and Yuan2.0-102B models support sequence length up to 4096 tokens, you and set `--max-position-embeddings` and `--seq-length` values according to your device memory.
 
@@ -78,10 +78,15 @@ Yuan2.0-2B model support sequence length up to 8192 tokens,  Yuan2.0-51B and Yua
 
 We provide evaluation scripts for [HumanEval](./docs/eval_humaneval.md)，[AGIEval-Math](./docs/eval_agieval_math.md)，[GSM-8K](./docs/eval_gsm_8k.md) and [TruthfulQA](./docs/eval_truthfulqa.md). We conducted performance tests on different versions of Yuan 2.0 models on four typical tasks.
 
-| Model        | GSM8K | AGIEval–MathQA | AGIEval–MathCloze | HumanEval | TurthfulQA |
-| ------------ | :---: | :------------: | :---------------: | :-------: | ---------- |
-| Yuan2.0-102B | 76.6% |     38.7%      |       13.5%       |   67.1%   |            |
+| Model             | GSM8K   | AGIEval-GK-Math-QA     | AGIEval-GK-Math-Cloze     | HumanEval | TurthfulQA |
+| ----------------- | :----:  | :------------: | :---------------: | :-------: | ---------- |
+|  GPT-4            |  92%    |     47.0%      |       16.1%       |   86.6%   |     59%    |
+|  Chat-GPT         | 68.6%\* |     36.5%      |        7.3%       |  66.8%\*  |     34%\*  |
+|  Llama2           | 56.8%   |       -        |         -         |   29.9%   |       -    |
+| Yuan2.0-102B      | 76.6%   |     38.7%      |       13.5%       |   67.1%   |       -    |
+| Yuan2.0-102B-SC   |   -     |       -        |        -          |   77.4%   |       -    |
 
+\* Evaluate ChatGPT using exactly the same input data as Yuan 2.0 in November 2023
 
 ## Inference Service
 
