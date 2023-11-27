@@ -99,7 +99,7 @@ Yuan2.0-2B模型支持的序列长度为8192个tokens，Yuan2.0-51B和Yuan2.0-10
 
 考虑到推理服务的效率，Yuan2.0-51B和Yuan2.0-102B模型在启动推理服务之前，需要将模型转换成只有张量并行的模型文件。可以参考[文档](./docs/checkpoint_process.md)
 
-可以通过调用推理服务，向推理服务发送请求实现模型的调用，[Yuan2.0 推理服务](./docs/run_inference_server.md)
+可以通过调用推理服务，向推理服务发送请求实现模型的调用，[Yuan2.0 推理服务](./docs/inference_server.md)
 
 
 
