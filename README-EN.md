@@ -83,8 +83,8 @@ We provide evaluation scripts for [HumanEval](./docs/eval_humaneval.md)，[AGIEv
 |  GPT-4            |  92%    |     47.0%      |       16.1%       |   86.6%   |     59%    |
 |  Chat-GPT         | 68.6%\* |     36.5%      |        7.3%       |  66.5%\*  |     34%\*  |
 |  Llama2           | 56.8%   |       -        |         -         |   29.9%   |       -    |
-| Yuan2.0-102B      | 76.6%   |     38.7%      |       13.5%       |   67.1%   |       -    |
-| Yuan2.0-102B-SC   |   -     |       -        |        -          |   77.4%   |       -    |
+| Yuan2.0-102B      | 76.6%   |     38.7%      |       13.5%       |   67.1%   |     58%    |
+| Yuan2.0-102B-SC   | 86.2%   |     45.5%      |       15.2%       |   77.4%   |       -    |
 
 \* Evaluate ChatGPT using exactly the same input data as Yuan 2.0 in November 2023
 
