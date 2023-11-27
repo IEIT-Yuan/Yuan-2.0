@@ -30,9 +30,9 @@ Yuan2.0 是浪潮信息发布的新一代预训练模型。我们开源了全部
 
 -----
 
-对本仓库源码的使用遵循开源许可协议 **[Apache 2.0](https://github.com/baichuan-inc/Baichuan-7B/blob/main/LICENSE)**。
+对本仓库源码的使用遵循开源许可协议 **Apache 2.0**。
 
-源2.0模型支持商用，不需要申请授权，请您了解并遵循[《源2.0模型许可协议》](./LICENSE-YUAN)，勿将开源模型和代码及基于开源项目产生的衍生物用于任何可能给国家和社会带来危害的用途以及用于任何未经过安全评估和备案的服务。
+源2.0模型支持商用，不需要申请授权，请您了解并遵循[《源2.0模型许可协议》](./LICENSE-Yuan)，勿将开源模型和代码及基于开源项目产生的衍生物用于任何可能给国家和社会带来危害的用途以及用于任何未经过安全评估和备案的服务。
 
 尽管模型在训练时我们已采取措施尽力确保数据的合规性和准确性，但模型参数量巨大且受概率随机性因素影响，我们无法保证输出内容的准确性，且模型易被输入指令所误导，本项目不承担开源模型和代码导致的数据安全、舆情风险或发生任何模型被误导、滥用、传播、不当利用而产生的风险和责任。**您将对通过使用、复制、分发和修改模型等方式利用该开源项目所产生的风险与后果，独自承担全部责任。**
 
@@ -83,7 +83,7 @@ Yuan2.0-2B模型支持的序列长度为8192个tokens，Yuan2.0-51B和Yuan2.0-10
 
 ## 评测结果
 
-我们提供了[HumanEval](./docs/eval_humaneval.md)，[AGIEval-Math](./docs/eval_agieval_math.md)，[GSM-8K](./docs/eval_gsm8k.md)和[TruthfulQA](./docs/eval_truthfulqa.md)的评估脚本。在4个典型任务上，我们用Yuan-2.0不同版本模型上进行了性能测试。
+我们提供了[HumanEval](./docs/eval_humaneval.md)，[AGIEval-Math](./docs/eval_agieval_math.md)，[GSM-8K](./docs/eval_gsm8k.md)和[TruthfulQA](./docs/eval_TruthfulQA.md)的评估脚本。在4个典型任务上，我们用Yuan-2.0不同版本模型上进行了性能测试。
 
 | Model             | GSM8K   | AGIEval-GK-Math-QA     | AGIEval-GK-Math-Cloze     | HumanEval | TurthfulQA |
 | ----------------- | :----:  | :------------: | :---------------: | :-------: | ---------- |
