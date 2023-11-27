@@ -8,7 +8,7 @@ Three models are provided, the main parameters are as follows:
 
 |      | Layer number | Hidden size | Attention head |
 | :--: | :----------: | :---------: | :------------: |
-| 2.1B |      24      |    2048     |       32       |
+| 2B   |      24      |    2048     |       32       |
 | 51B  |      42      |    8192     |       64       |
 | 102B |      84      |    8192     |       64       |
 
@@ -16,7 +16,7 @@ Three models are provided, the main parameters are as follows:
 
 The  scripts describe three models in Yuan2.0:
 
-- 2.1B : [`pretrain_yuan2.0_2.1B.sh`](../examples/pretrain_yuan2.0_2.1B.sh)
+- 2B : [`pretrain_yuan2.0_2.1B.sh`](../examples/pretrain_yuan2.0_2.1B.sh)
 
 - 51B : [`pretrain_yuan2.0_51B.sh`](../examples/pretrain_yuan2.0_51B.sh)
 

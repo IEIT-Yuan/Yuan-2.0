@@ -1,14 +1,14 @@
-# Yuan2.0
+# 源2.0
 
 [Read this in English.](./README-EN.md)
 
-📔 更为详细的使用信息，可以参考：[Yuan2.0 论文](./docs/Yuan2.0_paper.pdf)
+📔 更为详细的使用信息，可以参考：[源2.0 论文](./docs/源2.0_paper.pdf)
 
 
 
 ## 目录
 
-- [Yuan2.0](#yuan20)
+- [源2.0](#源20)
   - [目录](#目录)
   - [介绍](#介绍)
   - [快速启动](#快速启动)
@@ -26,7 +26,7 @@
 
 ## 介绍
 
-Yuan2.0 是浪潮信息发布的新一代预训练模型。我们开源了全部的3个模型Yuan2.0-102B，Yuan2.0-51B和Yuan2.0-2B。并且我们提供了预训练，微调，推理服务的相关脚本，以供研发人员做进一步的开发。Yuan2.0是在Yuan1.0的基础上，利用更多样的高质量预训练数据和指令微调数据集，令模型在语义、数学、推理、代码、知识等不同具备更强的理解能力。
+源2.0 是浪潮信息发布的新一代基础语言大模型。我们开源了全部的3个模型源2.0-102B，源2.0-51B和源2.0-2B。并且我们提供了预训练，微调，推理服务的相关脚本，以供研发人员做进一步的开发。源2.0是在源1.0的基础上，利用更多样的高质量预训练数据和指令微调数据集，令模型在语义、数学、推理、代码、知识等不同具备更强的理解能力。
 
 -----
 
@@ -63,21 +63,21 @@ docker run --gpus all -it -v /path/to/yuan_2.0:/workspace/yuan_2.0 -v /path/to/d
 
 ### 模型微调
 
-请参考指令微调 [Yuan2.0 指令微调示例](./docs/instruct_tuning.md)。
+请参考指令微调 [源2.0 指令微调示例](./docs/instruct_tuning.md)。
 
 请注意，不同的微调脚本对应的模型并不相同，请根据需要选择对应的模型。
 
 ### 模型
 
-我们提供了Yuan2.0有监督微调的模型文件。模型文件可以通过下面的链接下载得到：
+我们提供了源2.0有监督微调的模型文件。模型文件可以通过下面的链接下载得到：
 
 |    Model     | 序列长度  |         Download Link         |
 | :----------: | :------: | :---------------------------: |
-| Yuan2.0-102B |    4K    | [here](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) |
-| Yuan2.0-51B  |    4K    | [here](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) |
-|  Yuan2.0-2B  |    8K    | [here](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) |
+| 源2.0-102B |    4K    | [here](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) |
+| 源2.0-51B  |    4K    | [here](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) |
+|  源2.0-2B  |    8K    | [here](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) |
 
-Yuan2.0-2B模型支持的序列长度为8192个tokens，Yuan2.0-51B和Yuan2.0-102B模型支持的序列长度为4096个tokens，可以根据用户设备的内存大小设置 `--max-position-embeddings` 和 `--seq-length` 的值。
+源2.0-2B模型支持的序列长度为8192个tokens，源2.0-51B和源2.0-102B模型支持的序列长度为4096个tokens，可以根据用户设备的内存大小设置 `--max-position-embeddings` 和 `--seq-length` 的值。
 
 
 
@@ -90,16 +90,16 @@ Yuan2.0-2B模型支持的序列长度为8192个tokens，Yuan2.0-51B和Yuan2.0-10
 |  GPT-4            |  92%    |     47.0%      |       16.1%       |   86.6%   |     59%    |
 |  Chat-GPT         | 68.6%\* |     36.5%      |        7.3%       |  66.5%\*  |     34%\*  |
 |  Llama2           | 56.8%   |       -        |         -         |   29.9%   |       -    |
-| Yuan2.0-102B      | 76.6%   |     38.7%      |       13.5%       |   67.1%   |     58%    |
-| Yuan2.0-102B-SC   | 86.2%   |     45.5%      |       15.2%       |   77.4%   |       -    |
+| 源2.0-102B      | 76.6%   |     38.7%      |       13.5%       |   67.1%   |     58%    |
+| 源2.0-102B-SC   | 86.2%   |     45.5%      |       15.2%       |   77.4%   |       -    |
 
 \* 使用与源2.0完全相同的输入数据对ChatGPT进行测试，时间2023年11月
 
 ## 代码调用 
 
-考虑到推理服务的效率，Yuan2.0-51B和Yuan2.0-102B模型在启动推理服务之前，需要将模型转换成只有张量并行的模型文件。可以参考[文档](./docs/checkpoint_process.md)
+考虑到推理服务的效率，源2.0-51B和源2.0-102B模型在启动推理服务之前，需要将模型转换成只有张量并行的模型文件。可以参考[文档](./docs/checkpoint_process.md)
 
-可以通过调用推理服务，向推理服务发送请求实现模型的调用，[Yuan2.0 推理服务](./docs/inference_server.md)
+可以通过调用推理服务，向推理服务发送请求实现模型的调用，[源2.0 推理服务](./docs/inference_server.md)
 
 
 
