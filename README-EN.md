@@ -11,7 +11,7 @@
   - [Table of Contents](#table-of-contents)
   - [Introduction](#introduction)
   - [Quick Start](#quick-start)
-    - [Enviroment Config](#enviroment-config)
+    - [Environment Config](#environment-config)
     - [Data preprocess](#data-preprocess)
     - [Pretrain](#pretrain)
     - [Model Fine-tuning](#model-fine-tuning)
@@ -37,7 +37,7 @@ Although we have taken measures to ensure the compliance and accuracy of the dat
 
 ## Quick Start 
 
-### Enviroment Config
+### Environment Config
 
 We strongly recommend using the latest release of docker images we provided [here](https://pan.baidu.com/s/1IKjYqlf2kAPQzGsA6EdMCA?pwd=hopd).
 
