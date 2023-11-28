@@ -2,7 +2,7 @@
 
 [中文文档请点这里](./README.md)
 
-📔  For more detailed usage information, please refer to [Yuan2.0 Paper](./docs/Yuan2.0_paper. pdf)
+📔  For more detailed usage information, please refer to [Yuan2.0 Paper](https://arxiv.org/ftp/arxiv/papers/2311/2311.15786.pdf)
 
 
 
