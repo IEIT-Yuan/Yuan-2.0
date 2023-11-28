@@ -53,6 +53,7 @@ def add_text_generate_args(parser):
     group.add_argument('--random_seed', type=int, default=1234)
     group.add_argument('--beam_width', type=int, default=None)
     group.add_argument('--length_penalty', type=int, default=1)
+    group.add_argument('--prevent_newline_after_colon', type=bool, default=False)
 
     return parser
 
