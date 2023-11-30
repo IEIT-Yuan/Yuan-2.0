@@ -90,7 +90,7 @@ docker run --gpus all -it -v /path/to/yuan_2.0:/workspace/yuan_2.0 -v /path/to/d
 | :----------: | :------: | :---------------------------: |
 | 源2.0-102B |    4K    | [百度网盘](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) |
 | 源2.0-51B  |    4K    | [百度网盘](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) |
-|  源2.0-2B  |    8K    | [百度网盘](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) \| [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-2B/files) |
+|  源2.0-2B  |    8K    | [百度网盘](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) \| [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-2B/files) \| [HuggingFace](https://huggingface.co/zhaoxudong01/Yuan2.0-2B) |
 
 源2.0-2B模型支持的序列长度为8192个tokens，源2.0-51B和源2.0-102B模型支持的序列长度为4096个tokens，可以根据用户设备的内存大小设置 `--max-position-embeddings` 和 `--seq-length` 的值。
 
@@ -116,4 +116,8 @@ docker run --gpus all -it -v /path/to/yuan_2.0:/workspace/yuan_2.0 -v /path/to/d
 
 可以通过调用推理服务，向推理服务发送请求实现模型的调用，[源2.0 推理服务](./docs/inference_server.md)
 
+## 招聘公告
 
+我们正在招聘大模型框架研发、推理性能优化、开源社区运营方向相关专家。
+
+请申请者将个人简历发送至邮箱(wushaohua@ieisystem.com)，并注明邮件主题”源项目团队应聘简历-个人名字”。
