@@ -116,6 +116,15 @@ docker run --gpus all -it -v /path/to/yuan_2.0:/workspace/yuan_2.0 -v /path/to/d
 
 可以通过调用推理服务，向推理服务发送请求实现模型的调用，[源2.0 推理服务](./docs/inference_server.md)
 
+## 联系我们
+1.给我们发邮件：air_service@ieisystem.com
+
+2.加入开发者微信群：
+**方式一**：扫码关注“源AI看世界”公众号，发送消息“入群”获取开发者技术交流群二维码。
+  ![Image text](https://github.com/IEIT-Yuan/Yuan-2.0/blob/main/images/%E6%BA%90%E5%85%AC%E4%BC%97%E5%8F%B7%E4%BA%8C%E7%BB%B4%E7%A0%81.png)
+**方式二**：加工作人员微信（zhoupika），拉你入开发者技术交流群。
+  ![Image text](https://github.com/IEIT-Yuan/Yuan-2.0/blob/main/images/%E5%B7%A5%E4%BD%9C%E4%BA%BA%E5%91%98%E5%BE%AE%E4%BF%A1.png)
+
 ## 招聘公告
 
 我们正在招聘大模型框架研发、推理性能优化、开源社区运营方向相关专家。
