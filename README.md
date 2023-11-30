@@ -116,4 +116,8 @@ docker run --gpus all -it -v /path/to/yuan_2.0:/workspace/yuan_2.0 -v /path/to/d
 
 可以通过调用推理服务，向推理服务发送请求实现模型的调用，[源2.0 推理服务](./docs/inference_server.md)
 
+## 招聘公告
 
+我们正在招聘大模型框架研发、推理性能优化、开源社区运营方向相关工程师。
+
+请申请者将个人简历发送至邮箱(wushaohua@ieisystem.com)，并注明邮件主题”源项目团队应聘简历-个人名字”。
