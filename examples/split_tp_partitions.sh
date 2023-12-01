@@ -9,7 +9,6 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 
 python tools/split_tp_partitions.py \
-    --model-type GPT \
     --tokenizer-model-path $TOKENIZER_MODEL_PATH \
     --tensor-model-parallel-size 1 \
     --pipeline-model-parallel-size 16 \

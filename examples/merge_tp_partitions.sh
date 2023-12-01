@@ -9,7 +9,6 @@ TOKENIZER_MODEL_PATH=<Specify tokenizer model path>
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 python tools/merge_tp_partitions.py \
-    --model-type GPT \
     --tensor-model-parallel-size 2 \
     --target-tensor-model-parallel-size 1 \
     --pipeline-model-parallel-size 4 \

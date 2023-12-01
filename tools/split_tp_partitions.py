@@ -37,6 +37,7 @@ from megatron.arguments import (parse_args, validate_args)
 from megatron.core import mpu
 from megatron import update_num_microbatches
 from megatron.core import mpu, tensor_parallel
+from megatron.core.enums import ModelType
 from megatron.global_vars import get_args
 from megatron.utils import (unwrap_model, print_rank_0)
 from megatron.checkpointing import _load_base_checkpoint
@@ -90,7 +91,7 @@ def get_mp_merge_args(parser):
     """Provide extra arguments required for merging."""
     group = parser.add_argument_group(title='mp merge')
 
-    group.add_argument('--model-type', type=str,required=True,help='Type of the model.')
+    group.add_argument('--model-type', type=str,help='Type of the model.')
     group.add_argument('--target-tensor-model-parallel-size', type=int, default=2,
                        help='Degree of pipeline model parallelism in output model.')
     group.add_argument('--target-pipeline-model-parallel-size', type=int, default=1,
@@ -113,7 +114,7 @@ def main():
     validate_args(args)
     set_global_variables(args)
     args = get_args()
-
+    args.model_type=ModelType.encoder_or_decoder
     args.orig_tensor_model_parallel_size = args.tensor_model_parallel_size
     args.orig_pipeline_model_parallel_size = args.pipeline_model_parallel_size
     args.orig_transformer_pipeline_model_parallel_size = args.transformer_pipeline_model_parallel_size
