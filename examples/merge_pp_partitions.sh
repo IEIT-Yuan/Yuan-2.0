@@ -10,7 +10,8 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PATH=/opt/conda/bin/:$PATH
 
 python tools/merge_pp_partitions.py \
-    --tokenizer-model-name-or-path $TOKENIZER_MODEL_PATH \
+    --model-type GPT \
+    --tokenizer-model-path $TOKENIZER_MODEL_PATH \
     --tensor-model-parallel-size 8 \
     --target-tensor-model-parallel-size 8 \
     --pipeline-model-parallel-size 16 \
@@ -59,6 +60,7 @@ python tools/merge_pp_partitions.py \
     --lr-decay-style cosine \
     --min-lr 0.9e-5 \
     --weight-decay 1e-1 \
+    --no-load-optim \
     --use-distributed-optimizer \
     --use-cpu-initialization \
     --memorybuffer-device None \

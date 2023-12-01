@@ -9,13 +9,14 @@ TOKENIZER_MODEL_PATH=<Specify tokenizer model path>
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 python tools/merge_tp_partitions.py \
+    --model-type GPT \
     --tensor-model-parallel-size 2 \
     --target-tensor-model-parallel-size 1 \
     --pipeline-model-parallel-size 4 \
     --target-pipeline-model-parallel-size 4 \
     --memorybuffer-device None \
     --tokenizer-type YuanTokenizer \
-    --tokenizer-model-name-or-path $TOKENIZER_MODEL_PATH \
+    --tokenizer-model-path $TOKENIZER_MODEL_PATH \
     --num-layers 42 \
     --hidden-size 8192 \
     --num-attention-heads 64 \
@@ -57,6 +58,7 @@ python tools/merge_tp_partitions.py \
     --lr-decay-style cosine \
     --min-lr 1.8e-5 \
     --weight-decay 1e-1 \
+    --no-load-optim \
     --use-distributed-optimizer
     
 du -sh $SAVE_CHECKPOINT_PATH
