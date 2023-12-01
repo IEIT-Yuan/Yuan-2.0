@@ -3,7 +3,7 @@
 ## Dataset
 **datasets/TruthfulQA/TruthfulQA_EN.json.** The original English version of the [TruthfulQA](https://github.com/sylinrl/TruthfulQA/tree/main/data) test set containing 817 questions.
 
-**datasets/TruthfulQA/TruthfulQA_CN.json.** The Chinese version of the TruthfulQA test set for MC1, which is obtained by translation with the aid of gpt-3.5 model.
+**datasets/TruthfulQA/TruthfulQA_CN.json.** The Chinese version of the TruthfulQA test set for MC1, which is obtained by translation with the aid of gpt-4 model.
 
 In TruthfulQA_CN.json, 'query' denotes the question, 'ans1' denotes the first option, 'ans2' denotes the second option, and so on.
 
