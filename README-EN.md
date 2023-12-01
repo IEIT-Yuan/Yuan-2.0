@@ -76,7 +76,7 @@ Yuan2.0-2B model support sequence length up to 8192 tokens,  Yuan2.0-51B and Yua
 
 ### Evaluation
 
-We provide evaluation scripts for [HumanEval](./docs/eval_humaneval.md)，[AGIEval-Math](./docs/eval_agieval_math.md)，[GSM-8K](./docs/eval_gsm_8k.md) and [TruthfulQA](./docs/eval_TruthfulQA.md). We conducted performance tests on different versions of Yuan 2.0 models on four typical tasks.
+We provide evaluation scripts for [HumanEval](./docs/eval_humaneval.md)，[AGIEval-Math](./docs/eval_agieval_math.md)，[GSM-8K](./docs/eval_gsm_8k.md) and [TruthfulQA](./docs/eval_TruthfulQA.md) for users to reproduce ours numbers. We conducted performance tests on different size of Yuan 2.0 models, which can be found in our paper.
 
 | Model             | GSM8K   | AGIEval-GK-Math-QA     | AGIEval-GK-Math-Cloze     | HumanEval | TurthfulQA |
 | ----------------- | :----:  | :------------: | :---------------: | :-------: | ---------- |

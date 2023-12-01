@@ -98,7 +98,7 @@ docker run --gpus all -it -v /path/to/yuan_2.0:/workspace/yuan_2.0 -v /path/to/d
 
 ## 评测结果
 
-我们提供了[HumanEval](./docs/eval_humaneval.md)，[AGIEval-GK-Math](./docs/eval_agieval_math.md)，[GSM8K](./docs/eval_gsm8k.md)和[TruthfulQA](./docs/eval_TruthfulQA.md)的评估脚本。在4个典型任务上，我们用源2.0不同版本模型上进行了性能测试。
+我们提供了[HumanEval](./docs/eval_humaneval.md)，[AGIEval-GK-Math](./docs/eval_agieval_math.md)，[GSM8K](./docs/eval_gsm8k.md)和[TruthfulQA](./docs/eval_TruthfulQA.md)的评估脚本，以方便大家复现我们的评测结果。在4个典型任务上，我们在论文中给出了源2.0不同尺寸模型的精度。
 
 | Model             | GSM8K   | AGIEval-GK-Math-QA     | AGIEval-GK-Math-Cloze     | HumanEval | TurthfulQA |
 | ----------------- | :----:  | :------------: | :---------------: | :-------: | ---------- |
