@@ -111,6 +111,10 @@ def load_orig_ckpt(orig_pp_rank,tp_rank,args):
     state_dict, checkpoint_name, release = _load_base_checkpoint(args.load, rank0=False)
 
     optim_state_dict = None
+    if not args.no_load_optim and args.use_distributed_optimizer:
+        optim_checkpoint_name=get_distributed_optimizer_checkpoint_name(checkpoint_name)
+        optim_state_dict=torch.load(optim_checkpoint_name,map_location='cpu')
+
     if len(model) == 1:
         model[0].load_state_dict(state_dict['model'], strict=True)
     else:
@@ -129,6 +133,7 @@ def get_mp_merge_args(parser):
     group = parser.add_argument_group(title='mp merge')
 
 
+    group.add_argument('--model-type',type=str,help='Type of the model.')
     group.add_argument('--target-tensor-model-parallel-size', type=int, default=2,
                        help='Degree of pipeline model parallelism in output model.')
     group.add_argument('--target-pipeline-model-parallel-size', type=int, default=1,
@@ -268,7 +273,7 @@ def main():
                 with open(tracker_filename,'w') as f:
                     f.write(str(iteration))
 
-            if args.use_distributed_optimizer:
+            if not args.no_load_optim and args.use_distributed_optimizer:
 
                 new_optim_state_dict = deepcopy(optim_state_dicts[0])
                 new_optim_state_dict[0][torch.float32]['param'] = None

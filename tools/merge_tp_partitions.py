@@ -90,6 +90,7 @@ def get_mp_merge_args(parser):
     """Provide extra arguments required for merging."""
     group = parser.add_argument_group(title='mp merge')
 
+    group.add_argument('--model-type',type=str,help='Type of the model.')
     group.add_argument('--target-tensor-model-parallel-size', type=int, default=2,
                        help='Degree of pipeline model parallelism in output model.')
     group.add_argument('--target-pipeline-model-parallel-size', type=int, default=1,
@@ -184,7 +185,7 @@ def main():
                 total_numel = 0
                 for name, param in sub_model[0].named_parameters():
                     total_numel += param.numel()
-                if args.use_distributed_optimizer:
+                if not args.no_load_optim and args.use_distributed_optimizer:
                     sub_optim_checkpoint_name = get_distributed_optimizer_checkpoint_name(sub_checkpoint_name)
                     sub_optim_state_dict = torch.load(sub_optim_checkpoint_name, map_location='cpu')
                     assert total_numel == sub_optim_state_dict[0][torch.float32]['param'].shape[0]
@@ -227,7 +228,7 @@ def main():
             
             state_dict['model'] = model_[0].state_dict_for_save_checkpoint()
 
-            if not args.use_distributed_optimizer:
+            if not args.no_load_optim and not args.use_distributed_optimizer:
                 
                 state_dict['optimizer']['optimizer']['param_groups'][0]['params'] = list(range(len(param_groups[0]['params'])))
                 state_dict['optimizer']['optimizer']['param_groups'][1]['params'] = [i + len(param_groups[0]['params']) for i in range(len(param_groups[1]['params']))]
@@ -312,7 +313,7 @@ def main():
                 tracker_filename = get_checkpoint_tracker_filename(args.save)
                 with open(tracker_filename, 'w') as f:
                     f.write(str(iteration))
-            if args.use_distributed_optimizer:
+            if not args.no_load_optim and args.use_distributed_optimizer:
                 optim_checkpoint_name = get_distributed_optimizer_checkpoint_name(checkpoint_name)
                 optim_state_dict = deepcopy(total_sub_optim_state_dicts[0])
                 optim_state_dict[0][torch.float32]['param'] = None
