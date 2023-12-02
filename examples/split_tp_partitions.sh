@@ -9,7 +9,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 
 python tools/split_tp_partitions.py \
-    --tokenizer-model-name-or-path $TOKENIZER_MODEL_PATH \
+    --tokenizer-model-path $TOKENIZER_MODEL_PATH \
     --tensor-model-parallel-size 1 \
     --pipeline-model-parallel-size 16 \
     --target-pipeline-model-parallel-size 16 \
@@ -56,6 +56,7 @@ python tools/split_tp_partitions.py \
     --lr-decay-style cosine \
     --min-lr 1.0e-5 \
     --weight-decay 1e-1 \
+    --no-load-optim \
     --use-cpu-initialization \
     --memorybuffer-device None \
     --data-impl mmap --DDP-impl local

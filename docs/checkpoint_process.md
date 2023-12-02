@@ -37,3 +37,5 @@ Run the following command to merge checkpoint along pipeline:
 ```bash
 bash examples/merge_pp_partitions.sh
 ```
+
+The provided 51B ckpt was trained with 16 pipeline parallelism and 1 tensor parallelism. The provided 102B ckpt was trained with 32 pipeline parallelism and 1 tensor parallelism. The parameters need to be modified when using the script.

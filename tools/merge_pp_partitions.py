@@ -21,6 +21,7 @@ from megatron.initialize import initialize_megatron
 from megatron.arguments import (parse_args, validate_args)
 from megatron.core import mpu
 from megatron import update_num_microbatches
+from megatron.core.enums import ModelType
 from megatron.core import mpu, tensor_parallel
 from megatron.global_vars import get_args
 from megatron.utils import (unwrap_model, print_rank_0)
@@ -111,6 +112,9 @@ def load_orig_ckpt(orig_pp_rank,tp_rank,args):
     state_dict, checkpoint_name, release = _load_base_checkpoint(args.load, rank0=False)
 
     optim_state_dict = None
+    if not args.no_load_optim and args.use_distributed_optimizer:
+        optim_checkpoint_name=get_distributed_optimizer_checkpoint_name(checkpoint_name)
+        optim_state_dict=torch.load(optim_checkpoint_name,map_location='cpu')
     if len(model) == 1:
         model[0].load_state_dict(state_dict['model'], strict=True)
     else:
@@ -128,7 +132,7 @@ def get_mp_merge_args(parser):
     """Provide extra arguments required for merging."""
     group = parser.add_argument_group(title='mp merge')
 
-
+    group.add_argument('--model-type',type=str,help='Type of the model.')
     group.add_argument('--target-tensor-model-parallel-size', type=int, default=2,
                        help='Degree of pipeline model parallelism in output model.')
     group.add_argument('--target-pipeline-model-parallel-size', type=int, default=1,
@@ -150,7 +154,7 @@ def main():
     validate_args(args)
     set_global_variables(args)
     args = get_args()
-
+    args.model_type=ModelType.encoder_or_decoder
     args.orig_tensor_model_parallel_size = args.tensor_model_parallel_size
     args.orig_pipeline_model_parallel_size = args.pipeline_model_parallel_size
     args.orig_transformer_pipeline_model_parallel_size = args.transformer_pipeline_model_parallel_size
@@ -268,7 +272,7 @@ def main():
                 with open(tracker_filename,'w') as f:
                     f.write(str(iteration))
 
-            if args.use_distributed_optimizer:
+            if not args.no_load_optim and  args.use_distributed_optimizer:
 
                 new_optim_state_dict = deepcopy(optim_state_dicts[0])
                 new_optim_state_dict[0][torch.float32]['param'] = None

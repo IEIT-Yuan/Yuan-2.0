@@ -14,13 +14,13 @@ from .module import MegatronModule
 
 class MemoryBuffer:
 
-    def __init__(self, numel, numel_padded, dtype):
+    def __init__(self, numel, numel_padded, dtype,device=None):
         self.numel = numel
         self.numel_padded = numel_padded
         self.dtype = dtype
         self.data = torch.zeros(self.numel_padded,
                                 dtype=self.dtype,
-                                device=torch.cuda.current_device(),
+                                device=device, 
                                 requires_grad=False)
 
     def zero(self):
@@ -93,7 +93,7 @@ class DistributedDataParallel(DistributedDataParallelBase):
                  use_contiguous_buffers):
 
         super(DistributedDataParallel, self).__init__(module)
-
+        args = get_args()
         self.accumulate_allreduce_grads_in_fp32 \
             = accumulate_allreduce_grads_in_fp32
         self.use_contiguous_buffers = use_contiguous_buffers
@@ -111,8 +111,10 @@ class DistributedDataParallel(DistributedDataParallelBase):
         if self.use_contiguous_buffers:
             self._grad_buffers = {}
             self._grad_buffer_param_index_map = {}
-            data_parallel_world_size = mpu.get_data_parallel_world_size()
-
+            try:
+                data_parallel_world_size = mpu.get_data_parallel_world_size()
+            except:
+                data_parallel_world_size = 1
             # Simple function to define buffer type.
             def _get_buffer_type(param):
                 return torch.float if \
@@ -139,7 +141,8 @@ class DistributedDataParallel(DistributedDataParallelBase):
                 # Allocate grad buffer.
                 self._grad_buffers[dtype] = MemoryBuffer(num_elements,
                                                          num_elements_padded,
-                                                         dtype)
+                                                         dtype,
+                                                         device = args.memorybuffer_device)
 
             # Assume the back prop order is reverse the params order,
             # store the start index for the gradients.
