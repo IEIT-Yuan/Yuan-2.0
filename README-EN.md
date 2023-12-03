@@ -66,11 +66,11 @@ We also have provided the supervised fine-tuning script. See documentation [here
 
 We have provided Yuan2.0 supervised-finetuned checkpoints. The checkpoint files of the models through the following links:
 
-|    Model     | 序列长度  |         Download Link         |
-| :----------: | :------: | :---------------------------: |
-| Yuan2.0-102B |    4K    | [BaiduNetDisk](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) |
-| Yuan2.0-51B  |    4K    | [BaiduNetDisk](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) |
-|  Yuan2.0-2B  |    8K    | [BaiduNetDisk](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) \| [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-2B/files) \| [HuggingFace](https://huggingface.co/zhaoxudong01/Yuan2.0-2B)|
+|    Model     |  Seq Len  |         Download Link         |
+| :----------: | :-------: | :---------------------------: |
+| Yuan2.0-102B |    4K     | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-102B/files) \| [HuggingFace](https://huggingface.co/zhaoxudong01/Yuan2.0-102B) |
+| Yuan2.0-51B  |    4K     | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-51B/files)  \| [HuggingFace](https://huggingface.co/zhaoxudong01/Yuan2.0-51B)  |
+| Yuan2.0-2B   |    8K     | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-2B/files)   \| [HuggingFace](https://huggingface.co/zhaoxudong01/Yuan2.0-2B)   |
 
 Yuan2.0-2B model support sequence length up to 8192 tokens,  Yuan2.0-51B and Yuan2.0-102B models support sequence length up to 4096 tokens, you and set `--max-position-embeddings` and `--seq-length` values according to your device memory.
 
