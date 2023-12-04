@@ -23,6 +23,7 @@ The variables in the code should be set as follows:
 |`--target-tensor-model-parallel-size`|the target tensor model parallel size|
 |`--target-pipeline-model-parallel-size`|the target pipeline model parallel size|
 
+
 ## Usage
 
 Run the following command to split checkpoint along tensor:
@@ -37,5 +38,9 @@ Run the following command to merge checkpoint along pipeline:
 ```bash
 bash examples/merge_pp_partitions.sh
 ```
+**--pipeline-generate-layer--** and **--tensor-generate-layer--**  controls which layers only convert the parameter. For example, only the layers in the pipeline 0,1,2,3 are convert:
+```
+--pipeline-generate-layer-- 0,1,2,3
+```
 
-The provided 51B ckpt was trained with 16 pipeline parallelism and 1 tensor parallelism. The provided 102B ckpt was trained with 32 pipeline parallelism and 1 tensor parallelism. The parameters need to be modified when using the script.
+The provided 51B ckpt was trained with 16 pipeline parallelism and 1 tensor parallelism. The provided 102B ckpt was trained with 32 pipeline parallelism and 1 tensor parallelism. The parameters need to be modified when using the script. 
