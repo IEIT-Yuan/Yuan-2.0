@@ -1,15 +1,20 @@
 #!/bin/bash
 
-# Runs the "Yuan-102B" parameter model inference
+# Runs the "Yuan-2B" parameter model inference
 
-GPUS_PER_NODE=8
-MASTER_ADDR=localhost
-MASTER_PORT=6042
-NNODES=1
-NODE_RANK=0
-WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
-MAX_LENGTH=512
 
+if [ "$NODE_RANK" == "" ]; then
+    NODE_RANK=0
+fi
+if [ "$MASTER_ADDR" == "" ]; then
+    MASTER_ADDR=localhost
+fi
+if [ "$NNODES" == "" ]; then
+    NNODES=1
+fi
+if [ "$NUM_GPUS" == "" ]; then
+    NUM_GPUS=1
+fi
 if [ "$TEMP" == "" ]; then
     TEMP=1
 fi
@@ -19,26 +24,34 @@ fi
 if [ "$TOP_K" == "" ]; then
     TOP_K=1
 fi
-if [ "$CASE_NAME" == "" ]; then
-    CASE_NAME=test-102B
+if [ "$DATASET" == "" ]; then
+    DATASET=HumanEval.jsonl.gz
 fi
+
+WORLD_SIZE=$(($NUM_GPUS*$NNODES))
+if [ "$CASE_NAME" == "" ]; then
+    CASE_NAME=test-2B
+fi
+MASTER_PORT=12342
+export CUDA_VISIBLE_DEVICES=0
 
 TOKENIZER_MODEL_PATH=./tokenizer
 CHECKPOINT_PATH=<Specify CHECKPOINT_PATH>
-DATASET=HumanEval.jsonl.gz
-PROMPT=HumanEval-textprompts.jsonl
 LOG_PATH=./logs/${CASE_NAME}
 OUTPUT_PATH=./output/${CASE_NAME}
+PROMPT=HumanEval-textprompts.jsonl
+MAX_LENGTH=512
 
 mkdir -p $LOG_PATH
 mkdir -p $OUTPUT_PATH
 
+
 GPT_ARGS="
     --micro-batch-size 1 \
-    --tensor-model-parallel-size 8 \
+    --tensor-model-parallel-size 1 \
     --pipeline-model-parallel-size 1 \
-    --num-layers 84 \
-    --hidden-size 8192 \
+    --num-layers 24 \
+    --hidden-size 2048 \
     --use-lf-gate \
     --lf-conv2d-group 1 \
     --lf-conv2d-num-pad 0 \
@@ -53,9 +66,9 @@ GPT_ARGS="
     --disable-bias-linear \
     --reset-position-ids \
     --swiglu \
-    --num-attention-heads 64 \
-    --seq-length 4096 \
-    --max-position-embeddings 4096 \
+    --num-attention-heads 32 \
+    --seq-length 8192 \
+    --max-position-embeddings 8192 \
     --no-async-tensor-model-parallel-allreduce \
     --bf16 \
     --temp $TEMP \
@@ -63,17 +76,7 @@ GPT_ARGS="
     --top_k $TOP_K \
     --seed $RANDOM
 "
-
-DISTRIBUTED_ARGS="
-    --nproc_per_node $GPUS_PER_NODE \
-    --nnodes $NNODES \
-    --node_rank $NODE_RANK \
-    --master_addr $MASTER_ADDR \
-    --master_port $MASTER_PORT
-"
-
-
-torchrun $DISTRIBUTED_ARGS tasks/humaneval/eval_humaneval.py \
+torchrun --nproc_per_node $NUM_GPUS --master_addr $MASTER_ADDR --node_rank $NODE_RANK --nnodes $NNODES --master_port $MASTER_PORT tasks/humaneval/eval_humaneval_2B.py \
        $GPT_ARGS \
        --tokenizer-type "YuanTokenizer" \
        --tokenizer-model-path $TOKENIZER_MODEL_PATH \
@@ -83,5 +86,6 @@ torchrun $DISTRIBUTED_ARGS tasks/humaneval/eval_humaneval.py \
        --num_samples_per_task 1 \
        --max_len $MAX_LENGTH \
        --output_path $OUTPUT_PATH \
-       --load $CHECKPOINT_PATH 2>&1 | tee ${LOG_PATH}/eval_${NODE_RANK}_${CASE_NAME}.log
+       --load $CHECKPOINT_PATH 2>&1 | tee ${LOG_PATH}/eval_${CASE_NAME}.log
 evaluate_functional_correctness -p datasets/HUMANEVAL/${DATASET}  ${OUTPUT_PATH}/samples.jsonl 2>&1 | tee ${OUTPUT_PATH}/result.txt
+
