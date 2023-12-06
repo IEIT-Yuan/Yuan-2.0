@@ -4,7 +4,7 @@
 
    第一步，通过 `vim examples/run_inference_server_2.1B.sh` 修改 `TOKENIZER_MODEL_PATH、CHECKPOINT_PATH`两个变量为实际存放文件路径；`CUDA_VISIBLE_DEVICES`表示使用GPU编号，`PORT`表示服务使用端口号，用户可根据实际情况自行修改。
 
-  第二步，运行仓库中的脚本进行部署：
+   第二步，运行仓库中的脚本进行部署：
 
 ```bash
 bash examples/run_inference_server_2.1B.sh
