@@ -39,7 +39,7 @@ GPT_ARGS="
 "
 
 
-CUDA_VISIBLE_DEVICES=2 PORT=8902 NCCL_TIMEOUT=36000000 torchrun --nproc_per_node 1 --master_addr localhost --node_rank 0 --nnodes 1 --master_port $MASTER_PORT tools/run_text_generation_server.py  \
+CUDA_VISIBLE_DEVICES=0 PORT=8000 NCCL_TIMEOUT=36000000 torchrun --nproc_per_node 1 --master_addr localhost --node_rank 0 --nnodes 1 --master_port $MASTER_PORT tools/run_text_generation_server.py  \
        $GPT_ARGS \
        --tokenizer-type "YuanTokenizer" \
        --inference-server \

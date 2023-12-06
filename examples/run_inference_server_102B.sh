@@ -62,7 +62,7 @@ DISTRIBUTED_ARGS="
 "
 
 
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 PORT=8900 NCCL_IB_TIMEOUT=22 NCCL_TIMEOUT=60000000000 torchrun $DISTRIBUTED_ARGS tools/run_text_generation_server.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 PORT=8000 NCCL_IB_TIMEOUT=22 NCCL_TIMEOUT=60000000000 torchrun $DISTRIBUTED_ARGS tools/run_text_generation_server.py \
        $GPT_ARGS \
        --tokenizer-type "YuanTokenizer" \
        --inference-server \
