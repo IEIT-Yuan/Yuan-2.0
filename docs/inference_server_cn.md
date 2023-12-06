@@ -12,7 +12,7 @@ bash examples/run_inference_server_2.1B.sh
 
 - 使用Python进行测试
 
-我们还编写了一个示例代码来测试API调用的性能，运行前注意将代码中 `ip`和`port` 根据api部署情况进行修改。
+   我们还编写了一个示例代码来测试API调用的性能，运行前注意将代码中 `ip`和`port` 根据api部署情况进行修改。
 
 ```bash
 python tools/start_inference_server_api.py
