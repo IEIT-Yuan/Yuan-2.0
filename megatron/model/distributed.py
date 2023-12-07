@@ -14,7 +14,7 @@ from .module import MegatronModule
 
 class MemoryBuffer:
 
-    def __init__(self, numel, numel_padded, dtype,device=None):
+    def __init__(self, numel, numel_padded, dtype, device=None):
         self.numel = numel
         self.numel_padded = numel_padded
         self.dtype = dtype
@@ -139,10 +139,16 @@ class DistributedDataParallel(DistributedDataParallelBase):
                     int(math.ceil(num_elements / data_parallel_world_size))
 
                 # Allocate grad buffer.
+
+                if args.process_checkpoint:
+                    device_tmp = None
+                else:
+                    device_tmp = torch.cuda.current_device()
+
                 self._grad_buffers[dtype] = MemoryBuffer(num_elements,
                                                          num_elements_padded,
                                                          dtype,
-                                                         device = args.memorybuffer_device)
+                                                         device = device_tmp)
 
             # Assume the back prop order is reverse the params order,
             # store the start index for the gradients.

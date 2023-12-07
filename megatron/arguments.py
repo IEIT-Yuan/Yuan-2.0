@@ -203,8 +203,6 @@ def validate_args(args, defaults={}):
     if args.dataloader_type is None:
         args.dataloader_type = 'single'
     
-    if args.memorybuffer_device != None:
-        args.memorybuffer_device = torch.cuda.current_device()
     # Consumed tokens.
     args.consumed_train_samples = 0
     args.consumed_valid_samples = 0
@@ -930,7 +928,8 @@ def _add_learning_rate_args(parser):
                        '(learning rate, warmup iterations, minimum learning '
                        'rate, maximum number of iterations, and decay style '
                        'from checkpoint and ignore input arguments.')
-    group.add_argument('--memorybuffer-device',type=str, default=None,help='memorybuffer device used to process ckpt')
+    group.add_argument('--process-checkpoint', action='store_true', default=None,
+                       help='This parameter sets device=None when processing checkpoint.')
     group.add_argument('--lr-2nd-period-scaler', type=float, default=1,
                        help='scale learning rate in 2nd period')
     return parser

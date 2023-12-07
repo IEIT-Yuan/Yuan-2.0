@@ -62,7 +62,7 @@ python tools/merge_pp_partitions.py \
     --no-load-optim \
     --use-distributed-optimizer \
     --use-cpu-initialization \
-    --memorybuffer-device None \
+    --process-checkpoint \
     --data-impl mmap
 du -sh $SAVE_CHECKPOINT_PATH
 

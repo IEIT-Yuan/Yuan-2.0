@@ -22,6 +22,7 @@ Firstly,  make any desired modifications including setting the environment varia
 `--train-reset` allows you to begin your training iters from 0.
 `--sft-stage` is highly recommended to be on since it control the calculate of loss mask during SFT.
 `--override-opt-param-scheduler` allows you to set your own scheduler.
+`--finetune` load model for finetuning. do not load optimizer or rng state from checkpoint and set iters to 0. Assumed when loading a release checkpoint.
 
 If the dataset path is:
 
