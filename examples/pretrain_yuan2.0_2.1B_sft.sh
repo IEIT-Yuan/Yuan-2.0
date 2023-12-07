@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Runs the "Yuan-102B" parameter model
+# Runs the "Yuan-2.1B" parameter model
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
@@ -27,14 +27,12 @@ DISTRIBUTED_ARGS="
 
 GPT_ARGS="
     --tensor-model-parallel-size 1 \
-    --pipeline-model-parallel-size 32 \
-    --pipeline-model-parallel-method block \
-    --pipeline-model-parallel-blocks 2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2 \
+    --pipeline-model-parallel-size 1 \
     --timing-log-level 2 \
     --num-workers 2 \
-    --num-layers 84 \
-    --hidden-size 8192 \
-    --num-attention-heads 64 \
+    --num-layers 24 \
+    --hidden-size 2048 \
+    --num-attention-heads 32 \
     --use-lf-gate \
     --lf-conv2d-group 1 \
     --lf-conv2d-num-pad 1 \
@@ -52,22 +50,21 @@ GPT_ARGS="
     --swiglu \
     --adam-beta1 0.9 \
     --adam-beta2 0.95 \
-    --seq-length 4096 \
-    --max-position-embeddings 4096 \
-    --micro-batch-size 1 \
-    --global-batch-size 1152 \
-    --lr 0.00003 \
-    --train-iters 63578 \
-    --lr-decay-iters 63578 \
+    --seq-length 8192 \
+    --max-position-embeddings 8192 \
+    --micro-batch-size 2 \
+    --global-batch-size 384 \
+    --lr 0.0002 \
+    --train-iters 95367 \
+    --lr-decay-iters 95367 \
     --lr-decay-style cosine \
-    --min-lr 0.3e-5 \
+    --min-lr 2.0e-5 \
     --weight-decay 1e-1 \
-    --use-distributed-optimizer \
-    --lr-warmup-iters 1300 \
+    --lr-warmup-iters 1900 \
     --clip-grad 1.0 \
-    --recompute-method block \
+    --recompute-method uniform \
     --recompute-granularity full \
-    --recompute-num-layers 2 \
+    --recompute-num-layers 1 \
     --bf16 \
     --sft-stage \
     --override-opt-param-scheduler \

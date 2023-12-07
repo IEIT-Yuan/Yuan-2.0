@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Runs the "Yuan-102B" parameter model
+# Runs the "Yuan-51B" parameter model
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
@@ -27,12 +27,12 @@ DISTRIBUTED_ARGS="
 
 GPT_ARGS="
     --tensor-model-parallel-size 1 \
-    --pipeline-model-parallel-size 32 \
+    --pipeline-model-parallel-size 16 \
     --pipeline-model-parallel-method block \
-    --pipeline-model-parallel-blocks 2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2 \
+    --pipeline-model-parallel-blocks 2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,2 \
     --timing-log-level 2 \
     --num-workers 2 \
-    --num-layers 84 \
+    --num-layers 42 \
     --hidden-size 8192 \
     --num-attention-heads 64 \
     --use-lf-gate \
@@ -56,18 +56,18 @@ GPT_ARGS="
     --max-position-embeddings 4096 \
     --micro-batch-size 1 \
     --global-batch-size 1152 \
-    --lr 0.00003 \
+    --lr 0.00009 \
     --train-iters 63578 \
     --lr-decay-iters 63578 \
     --lr-decay-style cosine \
-    --min-lr 0.3e-5 \
+    --min-lr 0.9e-5 \
     --weight-decay 1e-1 \
     --use-distributed-optimizer \
     --lr-warmup-iters 1300 \
     --clip-grad 1.0 \
     --recompute-method block \
     --recompute-granularity full \
-    --recompute-num-layers 2 \
+    --recompute-num-layers 1 \
     --bf16 \
     --sft-stage \
     --override-opt-param-scheduler \

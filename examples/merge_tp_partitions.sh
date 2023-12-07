@@ -13,7 +13,6 @@ python tools/merge_tp_partitions.py \
     --target-tensor-model-parallel-size 1 \
     --pipeline-model-parallel-size 4 \
     --target-pipeline-model-parallel-size 4 \
-    --memorybuffer-device None \
     --tokenizer-type YuanTokenizer \
     --tokenizer-model-path $TOKENIZER_MODEL_PATH \
     --num-layers 42 \
@@ -58,6 +57,7 @@ python tools/merge_tp_partitions.py \
     --min-lr 1.8e-5 \
     --weight-decay 1e-1 \
     --no-load-optim \
+    --process-checkpoint \
     --use-distributed-optimizer
     
 du -sh $SAVE_CHECKPOINT_PATH

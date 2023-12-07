@@ -22,7 +22,9 @@ The variables in the code should be set as follows:
 |`--pipeline-model-parallel-size`|the original pipeline model parallel size|
 |`--target-tensor-model-parallel-size`|the target tensor model parallel size|
 |`--target-pipeline-model-parallel-size`|the target pipeline model parallel size|
-
+|`--pipeline-model-parallel-blocks`|The number of transformer layers specified by the user for each pipeline stage|
+|`--target-pipeline-model-parallel-blocks`|The number of transformer layers specified by the user for each pipeline stage in output model|
+|`--process-checkpoint`|the parameter sets device=None when processing checkpoint|
 
 ## Usage
 
@@ -44,3 +46,8 @@ bash examples/merge_pp_partitions.sh
 ```
 
 The provided 51B ckpt was trained with 16 pipeline parallelism and 1 tensor parallelism. The provided 102B ckpt was trained with 32 pipeline parallelism and 1 tensor parallelism. The parameters need to be modified when using the script. 
+
+
+## Notice
+
+When procesing 51B/102B ckpt, if 'AssertionError: num of args.pipeline\_model\_parallel\_blocks must eq args.pipeline\_model\_parallel\_size' occurs, it may be because tensor\_model\_parallel\_size * pipeline\_model\_parallel\_size > world\_size. Modifying os.environ["WORLD\_SIZE"] in scirpt merge\_pp\_partitions.py/split\_tp\_partitions.py can solve this problem. 

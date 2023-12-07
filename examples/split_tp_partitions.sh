@@ -6,7 +6,7 @@ LOAD_CHECKPOINT_PATH=<Specify the loaded ckpt path>
 SAVE_CHECKPOINT_PATH=<Specify the stored ckpt path>
 TOKENIZER_MODEL_PATH=<Specify tokenizer model path>
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-
+mkdir $SAVE_CHECKPOINT_PATH
 
 python tools/split_tp_partitions.py \
     --tokenizer-model-path $TOKENIZER_MODEL_PATH \
@@ -58,7 +58,7 @@ python tools/split_tp_partitions.py \
     --weight-decay 1e-1 \
     --no-load-optim \
     --use-cpu-initialization \
-    --memorybuffer-device None \
+    --process-checkpoint \
     --data-impl mmap --DDP-impl local
 
 

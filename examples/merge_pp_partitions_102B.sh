@@ -56,7 +56,8 @@ python tools/merge_pp_partitions.py \
     --lr-decay-iters 63578 \
     --lr-decay-style cosine \
     --min-lr 1.0e-5 \
-    --weight-decay 1e-1\
+    --weight-decay 1e-1 \
+    --process-checkpoint \
     --use-cpu-initialization \
     --data-impl mmap
 du -sh $SAVE_CHECKPOINT_PATH
