@@ -117,7 +117,7 @@ def main():
     model.cuda()
     torch.distributed.barrier()
     if torch.distributed.get_rank()==0 and not os.path.exists(args.output_path):
-        os.mkdirs(args.output_path)
+        os.makedirs(args.output_path)
 
     with torch.no_grad():
         data_iter = tqdm(enumerate(data_loader), total=len(data_loader)) if torch.distributed.get_rank()==0 else enumerate(data_loader)
