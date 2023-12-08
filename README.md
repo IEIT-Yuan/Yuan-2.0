@@ -55,14 +55,16 @@
 
 ### 环境配置
 
-我们建议使用有我们提供的最新的docker[镜像文件](https://pan.baidu.com/s/1IKjYqlf2kAPQzGsA6EdMCA?pwd=hopd).
+我们建议使用有我们提供的最新的docker[镜像文件](https://hub.docker.com/r/yuanmodel/yuan2.0).
 
 我们可以通过下面命令启动容器：
 
 ```bash
-docker load < ./yuan_v2.0.tar
-docker run --gpus all -it -v /path/to/yuan_2.0:/workspace/yuan_2.0 -v /path/to/dataset:/workspace/dataset -v /path/to/checkpoints:/workspace/checkpoints yuan_v2.0:latest
+docker pull yuanmodel/yuan2.0:V1-base
+docker run --gpus all --privileged --ulimit stack=68719476736 --shm-size=1000G -itd  /path/to/yuan_2.0:/workspace/yuan_2.0 -v /path/to/dataset:/workspace/dataset -v /path/to/checkpoints:/workspace/checkpoints --name your_name yuan2.0:V1-base
+docker exec -it your_name bash
 ```
+
 
 
 
@@ -115,6 +117,8 @@ docker run --gpus all -it -v /path/to/yuan_2.0:/workspace/yuan_2.0 -v /path/to/d
 考虑到推理服务的效率，源2.0-51B和源2.0-102B模型在启动推理服务之前，需要将模型转换成只有张量并行的模型文件。可以参考[文档](./docs/checkpoint_process.md)
 
 可以通过调用推理服务，向推理服务发送请求实现模型的调用，[源2.0 推理服务](./docs/inference_server.md)
+
+详细启动推理服务的流程可以参考[QuickStart_Inference文档](./docs/quickstart_inference.md)
 
 ## 联系我们
 1.给我们发邮件：air_service@ieisystem.com

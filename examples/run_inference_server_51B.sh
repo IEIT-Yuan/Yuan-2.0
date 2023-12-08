@@ -2,7 +2,7 @@
 
 # Runs the "Yuan-102B" parameter model
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-GPUS_PER_NODE=8
+GPUS_PER_NODE=4
 MASTER_ADDR=localhost
 MASTER_PORT=6074
 NNODES=1
@@ -24,9 +24,9 @@ CHECKPOINT_PATH=<Specify path>
 
 GPT_ARGS="
     --micro-batch-size 1 \
-    --tensor-model-parallel-size 8 \
+    --tensor-model-parallel-size 4 \
     --pipeline-model-parallel-size 1 \
-    --num-layers 84 \
+    --num-layers 42 \
     --distributed-timeout-minutes 120 \
     --hidden-size 8192 \
     --use-lf-gate \
@@ -62,7 +62,7 @@ DISTRIBUTED_ARGS="
 "
 
 
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 PORT=8000 NCCL_IB_TIMEOUT=22 NCCL_TIMEOUT=60000000000 torchrun $DISTRIBUTED_ARGS tools/run_text_generation_server.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3 PORT=8000 NCCL_IB_TIMEOUT=22 NCCL_TIMEOUT=60000000000 torchrun $DISTRIBUTED_ARGS tools/run_text_generation_server.py \
        $GPT_ARGS \
        --tokenizer-type "YuanTokenizer" \
        --inference-server \

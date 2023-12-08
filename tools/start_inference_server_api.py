@@ -62,8 +62,10 @@ if __name__ == '__main__':
         "top_p":0.0,
         "top_k":5
     }
-    request_url="http://ip:port/yuan"
-    result = rest_post(request_url, request_data, 30, show_error=False)
+
+    #request_url="http://ip:port/yuan"
+    request_url="http://127.0.0.1:8000/yuan"
+    result = rest_post(request_url, request_data, 300, show_error=False)
     print(result)
     print("end")
 

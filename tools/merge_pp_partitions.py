@@ -147,7 +147,9 @@ def get_mp_merge_args(parser):
     return parser
 
 def main():
-    os.environ["WORLD_SIZE"] = '{}'.format(2 ** 5)
+    # Arguments do sanity checks on the world size, but we don't care,
+    # so trick it into thinking we are plenty of processes
+    os.environ["WORLD_SIZE"] = '{}'.format(2 ** 8)
 
     # Args
     args = parse_args(extra_args_provider=get_mp_merge_args, ignore_unknown_args=True)

@@ -2,11 +2,20 @@
 
 #merge checkpoint along the pipeline
 
-LOAD_CHECKPOINT_PATH=<Specify the loaded ckpt path>
-SAVE_CHECKPOINT_PATH=<Specify the loaded ckpt path>
-TOKENIZER_MODEL_PATH=<Specify tokenizer model path>
+LOAD_CHECKPOINT_PATH=$1
+#<Specify the loaded ckpt path>
+SAVE_CHECKPOINT_PATH=$2
+#<Specify the stored ckpt path>
+TOKENIZER_MODEL_PATH=$3
+#<Specify tokenizer model path>
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PATH=/opt/conda/bin/:$PATH
+
+if [ ! -d $SAVE_CHECKPOINT_PATH ]; then
+
+        mkdir $SAVE_CHECKPOINT_PATH
+
+fi
 
 python tools/merge_pp_partitions.py \
     --tokenizer-model-path $TOKENIZER_MODEL_PATH \
@@ -17,7 +26,7 @@ python tools/merge_pp_partitions.py \
     --pipeline-model-parallel-method block \
     --pipeline-model-parallel-blocks 2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2 \
     --target-pipeline-model-parallel-blocks 84 \
-    --tensor-generate-layer 0,1 \
+    --tensor-generate-layer 0,1,2,3,4,5,6,7 \
     --tokenizer-type YuanTokenizer \
     --num-layers 84 \
     --hidden-size 8192 \

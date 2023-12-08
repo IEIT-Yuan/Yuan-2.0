@@ -9,6 +9,12 @@ TOKENIZER_MODEL_PATH=<Specify tokenizer model path>
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PATH=/opt/conda/bin/:$PATH
 
+if [ ! -d $SAVE_CHECKPOINT_PATH ]; then
+
+        mkdir $SAVE_CHECKPOINT_PATH
+
+fi
+
 python tools/merge_pp_partitions.py \
     --tokenizer-model-path $TOKENIZER_MODEL_PATH \
     --tensor-model-parallel-size 8 \
@@ -18,7 +24,7 @@ python tools/merge_pp_partitions.py \
     --pipeline-model-parallel-method block \
     --pipeline-model-parallel-blocks  2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,2 \
     --target-pipeline-model-parallel-blocks 42 \
-    --tensor-generate-layer 0,1 \
+    --tensor-generate-layer 0,1,2,3,4,5,6,7 \
     --tokenizer-type YuanTokenizer \
     --num-layers 42 \
     --hidden-size 8192 \
