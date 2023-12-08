@@ -4,7 +4,7 @@
 NNODES=1
 MASTER_PORT=12308
 
-TOKENIZER_MODEL_PATH=<Specify path to file>
+TOKENIZER_MODEL_PATH=./tokenizer
 CHECKPOINT_PATH=<Specify path>
 
 

@@ -8,6 +8,12 @@ SAVE_CHECKPOINT_PATH=<Specify the stored ckpt path >
 TOKENIZER_MODEL_PATH=<Specify tokenizer model path>
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
+if [ ! -d $SAVE_CHECKPOINT_PATH ]; then
+
+        mkdir $SAVE_CHECKPOINT_PATH
+
+fi
+
 python tools/merge_tp_partitions.py \
     --tensor-model-parallel-size 2 \
     --target-tensor-model-parallel-size 1 \

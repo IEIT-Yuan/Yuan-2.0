@@ -19,7 +19,7 @@ if [ "$TOP_K" == "" ]; then
     TOP_K=1
 fi
 
-TOKENIZER_MODEL_PATH=<Specify path to file>
+TOKENIZER_MODEL_PATH=./tokenizer
 CHECKPOINT_PATH=<Specify path>
 
 GPT_ARGS="

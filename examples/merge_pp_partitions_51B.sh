@@ -2,6 +2,7 @@
 
 #merge checkpoint along the pipeline
 
+
 LOAD_CHECKPOINT_PATH=$1
 #<Specify the loaded ckpt path>
 SAVE_CHECKPOINT_PATH=$2
@@ -17,17 +18,18 @@ if [ ! -d $SAVE_CHECKPOINT_PATH ]; then
 
 fi
 
-python tools/split_tp_partitions.py \
+python tools/merge_pp_partitions.py \
     --tokenizer-model-path $TOKENIZER_MODEL_PATH \
-    --tensor-model-parallel-size 1 \
-    --target-tensor-model-parallel-size 8 \
-    --pipeline-model-parallel-size 32 \
-    --target-pipeline-model-parallel-size 32 \
+    --tensor-model-parallel-size 4 \
+    --target-tensor-model-parallel-size 4 \
+    --pipeline-model-parallel-size 16 \
+    --target-pipeline-model-parallel-size 1 \
     --pipeline-model-parallel-method block \
-    --pipeline-model-parallel-blocks 2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2 \
-    --pipeline-generate-layer 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31 \
+    --pipeline-model-parallel-blocks  2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,2 \
+    --target-pipeline-model-parallel-blocks 42 \
+    --tensor-generate-layer 0,1,2,3 \
     --tokenizer-type YuanTokenizer \
-    --num-layers 84 \
+    --num-layers 42 \
     --hidden-size 8192 \
     --num-attention-heads 64 \
     --seq-length 4096 \
@@ -36,37 +38,40 @@ python tools/split_tp_partitions.py \
     --lf-conv2d-group 1 \
     --lf-conv2d-num-pad 1 \
     --position-embedding-type rope \
-    --flash-attn-drop 0.1\
-    --fim-rate 0.5\
-    --fim-spm-rate 0.5\
-    --attention-dropout 0\
-    --hidden-dropout 0\
+    --no-embedding-dropout \
+    --flash-attn-drop 0.1 \
+    --fim-rate 0.5 \
+    --fim-spm-rate 0.5 \
+    --attention-dropout 0 \
+    --hidden-dropout 0 \
     --norm-dtype RMSNorm \
     --disable-bias-linear \
     --reset-position-ids \
     --use-flash-attn \
     --swiglu \
-    --fused-rmsnorm \
     --DDP-impl local \
+    --adam-beta1 0.9 \
+    --adam-beta2 0.95 \
     --bf16 \
-    --process-checkpoint \
     --save-interval 1 \
     --recompute-method block \
     --recompute-granularity full \
-    --recompute-num-layers 2 \
+    --recompute-num-layers 1 \
     --load $LOAD_CHECKPOINT_PATH \
     --save $SAVE_CHECKPOINT_PATH \
     --micro-batch-size 1 \
     --global-batch-size 1152 \
-    --no-load-optim \
     --use-distributed-optimizer \
-    --lr 0.0001 \
+    --lr 0.00009 \
     --train-iters 63578 \
     --lr-decay-iters 63578 \
     --lr-decay-style cosine \
-    --min-lr 1.0e-5 \
+    --min-lr 0.9e-5 \
     --weight-decay 1e-1 \
+    --no-load-optim \
+    --use-distributed-optimizer \
     --use-cpu-initialization \
+    --process-checkpoint \
     --data-impl mmap
 du -sh $SAVE_CHECKPOINT_PATH
 
