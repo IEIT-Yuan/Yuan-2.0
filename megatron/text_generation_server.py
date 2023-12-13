@@ -273,10 +273,10 @@ class MegatronGenerate(Resource):
                     print(response)
                     
                 for i, rid in enumerate(ids):
-                    response = response[i].strip()
-                    response = response[0:response.find('<eod>')]
-                    response = response.split('<sep>')[-1]
-                    outputs.append({"id": str(rid), "ans": response})
+                    res = response[i].strip()
+                    res = res[0:res.find('<eod>')]
+                    res = res.split('<sep>')[-1]
+                    outputs.append({"id": str(rid), "ans": res})
                 resData['output'] = outputs
                 print("infer finished time: ", datetime.datetime.now())
                 return jsonify(success_ques(resData))
