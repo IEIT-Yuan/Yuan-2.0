@@ -16,11 +16,12 @@
 
 **examples/eval\_humaneval\_102B.sh.** The evaluation results for Chinese HumanEval on 102B model could be obtained by running this program.
 
-Before running the evaluation program, you only have to specify the following checkpoint\_path in bash script by yourself, the other necessary paths are already set up:
+Before running the evaluation program, you only have to specify the following checkpoint\_path in bash script by yourself, the other necessary paths are already set up. If you are evaluating the checkpoint merged by yourself, make sure to change the following `--tensor-model-parallel-size` parameter in the bash script to the number of tensor model parallel size on your newly merged checkpoint.:
 
-| Variable name     | Description                                         |
-| ----------------- | --------------------------------------------------- |
-| `CHECKPOINT_PATH` | the path that saves the checkpoint to be evaluated. |
+| Variable name                  | Description                                                            |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| `CHECKPOINT_PATH`              | the path that saves the checkpoint to be evaluated.                    |
+| `tensor-model-parallel-size`   | the number of tensor model parallel size of the evaluating checkpoint. |
 
 ### Requirement
 
@@ -48,6 +49,30 @@ check_program = (
 )
 
 ```
+
+Also, if you are new to HumanEval, you have to delete the extra "#" in "check\_program", right before  the line "exec(check\_program, exec\_globals)".
+
+```
+# WARNING
+# This program exists to execute untrusted model-generated code. Although
+# it is highly unlikely that model-generated code will do something overtly
+# malicious in response to this test suite, model-generated code may act
+# destructively due to a lack of model capability or alignment.
+# Users are strongly encouraged to sandbox this evaluation suite so that it
+# does not perform destructive actions on their host or network. For more
+# information on how OpenAI sandboxes its code, see the accompanying paper.
+# Once you have read this disclaimer and taken appropriate precautions,
+# uncomment the following line and proceed at your own risk:
+                         exec(check_program, exec_globals)
+                result.append("passed")
+            except TimeoutException:
+                result.append("timed out")
+            except BaseException as e:
+                result.append(f"failed: {e}")
+
+```
+
+
 
 ### Usage
 
@@ -79,6 +104,4 @@ bash examples/eval_humaneval_2B.sh
 ### Results
 
 The evaluation results will be gathered in samples.jsonl in \$OUTPUT\_PATH. After the generation of all the tasks done, the "evaluate\_functional\_correctness" function of HumanEval would automatically evaluate the results and return the accuracy.
-
-
 
