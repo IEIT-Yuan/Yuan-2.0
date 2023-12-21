@@ -39,7 +39,7 @@ Although we have taken measures to ensure the compliance and accuracy of the dat
 
 ### Environment Config
 
-We strongly recommend using the latest release of docker images we provided [here](https://pan.baidu.com/s/1IKjYqlf2kAPQzGsA6EdMCA?pwd=hopd).
+We strongly recommend using the latest release of docker images we provided [here](https://hub.docker.com/r/yuanmodel/yuan2.0).
 
 You can launch an instance of the Yuan 2.0 container with the following Docker commands:
 
@@ -68,9 +68,9 @@ We have provided Yuan2.0 supervised-finetuned checkpoints. The checkpoint files 
 
 |    Model     |  Seq Len  |         Download Link         |
 | :----------: | :-------: | :---------------------------: |
-| Yuan2.0-102B |    4K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-102B/files) \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2.0-102B) \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-102B)  \|  [百度网盘](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) |
-| Yuan2.0-51B  |    4K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-51B/files)  \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2.0-51B)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-51B)   \| [百度网盘](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3)|
-|  Yuan2.0-2B  |    8K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-2B/files)   \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2.0-2B)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-2B)    \| [百度网盘](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa)|
+| Yuan2.0-102B |    4K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-102B/files) \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2.0-102B) \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-102B)  \|  [BaiduNetDisk](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-102B)|
+| Yuan2.0-51B  |    4K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-51B/files)  \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2.0-51B)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-51B)   \| [BaiduNetDisk](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-51B)|
+|  Yuan2.0-2B  |    8K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-2B/files)   \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2.0-2B)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-2B)    \| [BaiduNetDisk](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-2B) |
 
 Yuan2.0-2B model support sequence length up to 8192 tokens,  Yuan2.0-51B and Yuan2.0-102B models support sequence length up to 4096 tokens, you and set `--max-position-embeddings` and `--seq-length` values according to your device memory.
 
