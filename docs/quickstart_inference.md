@@ -1,8 +1,8 @@
-# Quick Start Inference
+# Quick Start: Inference
 
-This script describes the inference guide of the 102B model and the 51B model, including the ckpt conversion and the use of the inference service.
+This script provides a quick guide on using the 102B model and the 51B model, including instructions for checkpoint (ckpt) conversion and utilizing inference services.
 
-## 102B：
+## Yuan 2.0-102B:
 
 ### step1：
 
@@ -77,7 +77,7 @@ If the inference service runs successfully, the inference result will be returne
 ```
 
 
-## 51B：
+## Yuan 2.0-51B:
 
 ### step1：
 
