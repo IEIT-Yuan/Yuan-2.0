@@ -118,7 +118,7 @@ docker exec -it your_name bash
 
 可以通过调用推理服务，向推理服务发送请求实现模型的调用，[源2.0 推理服务](./docs/inference_server.md)
 
-详细启动推理服务的流程可以参考[QuickStart_Inference文档](./docs/quickstart_inference.md)
+详细启动推理服务的流程可以参考[Yuan2_inference_guide文档](./docs/Yuan2_inference_guide_cn.md)
 
 ## 联系我们
 1.给我们发邮件：air_service@ieisystem.com

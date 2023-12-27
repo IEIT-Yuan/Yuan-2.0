@@ -1,52 +1,63 @@
-# 快速推理指引
+# Quick Start: Inference
 
-本脚本介绍了102B模型和51B模型快速使用指引，主要包括ckpt转换以及推理服务使用
+This script provides a quick guide on using the 102B model and the 51B model, including instructions for checkpoint (ckpt) conversion and utilizing inference services.
 
-## 102B模型：
+## Yuan 2.0-102B:
 
 ### step1：
 
-首先需要转换ckpt，我们提供的102B的模型文件是32路流水并行-1路张量并行（32pp，1tp）的模型文件，为了提高推理效率，需要将32路流水并行的模型文件转换为8路张量并行的模型文件（适用于80GB GPU），转换流程是：
+Firstly, you need to convert the ckpt.
 
-（32路流水-1路张量）->（32路流水-8路张量）->（1路流水-8路张量）
+The parallelism method of the 102B-models is 32-pipeline-parallelism and 1-tensor--parallelism(32pp, 1tp). In order to improve the parallelism efficiency of the inference, you need to convert parallelism method of the 102B-models from  (32pp, 1tp) to (1pp, 8tp). (Apply to 80GB-GPU)
 
-我们提供了自动转换脚本，可以依次执行完上述流程，使用方式如下：
+The conversion process is as follows:
+
+(32pp, 1tp) -> (32pp, 8tp) -> (1pp, 8tp)
+
+We provide an automatic conversion script that can be used as follows:
 
 ```
 1. vim examples/ckpt_partitions_102B.sh
 
-2. 修改如下三个环境变量（LOAD_CHECKPOINT_PATH，SAVE_SPLITED_CHECKPOINT_PATH，SAVE_CHECKPOINT_PATH）：
+2. Set three environment variables: LOAD_CHECKPOINT_PATH, SAVE_SPLITED_CHECKPOINT_PATH, SAVE_CHECKPOINT_PATH:
 
-LOAD_CHECKPOINT_PATH 表示Yuan2.0开源的原始32路流水并行的模型文件路径，需要路径下面包含latest_checkpointed_iteration.txt这个文件（这个文件会在开源的模型文件中），一个示例如下：
+LOAD_CHECKPOINT_PATH: The path to the base 102B-model(32pp, 1tp), this path needs to contain the 'latest_checkpointed_iteration.txt' file. An example is shown below:
+
 LOAD_CHECKPOINT_PATH=/mnt/102B
 
-SAVE_SPLITED_CHECKPOINT_PATH 表示转换产生的中间文件路径，主要作用于（32路流水-1路张量）->（32路流水-8路张量）产生的结果文件，等脚本完成转换之后可以删除该文件，一个示例如下：
+SAVE_SPLITED_CHECKPOINT_PATH: The path to the temporary 102B-model(32pp, 8tp), which can be removed when all conversions are done. An example is shown below:
+
 SAVE_SPLITED_CHECKPOINT_PATH=./ckpt-102B-mid
 
-SAVE_CHECKPOINT_PATH 表示最终产生的8路张量并行的ckpt，主要作用于（32路流水-8路张量）->（1路流水-8路张量）产生的结果文件，一个示例如下：
+SAVE_CHECKPOINT_PATH: The path to the resulting 102B-model(1pp, 8tp). An example is shown below:
+
 SAVE_CHECKPOINT_PATH=./ckpt-102B-8tp
 
-如果在megatron主目录下面运行脚本，可以不修改TOKENIZER_MODEL_PATH=./tokenizer（因为github主目录下面包含tokenizer），否则需要指定tokenizer路径
+If you run the script in the Yuan home directory, you can use the path: TOKENIZER_MODEL_PATH=./tokenizer (because the Yuan home directory contains the tokenizer), otherwise you need to specify the tokenizer path.
 
 3. bash examples/ckpt_partitions_102B.sh
 ```
 
-在上述步骤完成后，会在`SAVE_CHECKPOINT_PATH`指定的目录下面生成一个8路张量并行的ckpt，可以用于推理服务。
+After the above steps are completed, an 8-way tensor parallel ckpt will be generated in the directory specified by `SAVE_CHECKPOINT_PATH`, which can be used for inference services.
 
 ### step2：
 
 ```
-1. 启动推理服务，需要在脚本examples/run_inference_server_102B.sh中修改环境变量CHECKPOINT_PATH：
+1. Set environment variable 'CHECKPOINT_PATH' in script 'examples/run_inference_server_102B.sh'.
 
 vim examples/run_inference_server_102B.sh
 
-修改环境变量CHECKPOINT_PATH为step1中SAVE_CHECKPOINT_PATH指定的路径，比如以上示例中SAVE_CHECKPOINT_PATH=./ckpt-102B-8tp，那么需要指定examples/run_inference_server_102B.sh中CHECKPOINT_PATH=./ckpt-102B-8tp
+Set environment variable 'CHECKPOINT_PATH' to 'SAVE_CHECKPOINT_PATH' specified in step-1. For example, if in step-1 SAVE_CHECKPOINT_PATH=./ckpt-102B-8tp, you should set CHECKPOINT_PATH=./ckpt-102B-8tp in script examples/run_inference_server_102B.sh
 
-2. 启动推理服务（需要8张80GB GPU卡）：
-#注意，程序默认的端口号为8000，如果8000被占用，需要修改examples/run_inference_server_102B.sh中的环境变量PORT为实际使用的端口号
+
+2. Start the inference service（Requires 8 x 80GB-GPU）：
+
+#The default port number of the script is 8000, if 8000 is occupied, you need to change the environment variable 'PORT' in examples/run_inference_server_102B.sh to the used port number.
+
 bash examples/run_inference_server_102B.sh
 
-等待程序完成cpkt的加载并出现如下信息后，可以执行下一步调用推理服务：
+After the program finishes loading the cpkt and the following information appears, you can perform the next step to call the inference service:
+
   successfully loaded checkpoint from ./ckpt-102B-8tp at iteration 1
 
  * Serving Flask app 'megatron.text_generation_server'
@@ -56,60 +67,71 @@ bash examples/run_inference_server_102B.sh
  * Running on http://127.0.0.1:8000
  * Running on http://127.0.0.1:8000
 
-3. 在相同docker中调用推理服务：
-#注意，程序默认的端口号为8000，如果8000被占用，需要修改tools/start_inference_server_api.py中的request_url="http://127.0.0.1:8000/yuan"
-中的端口号为实际使用的端口号
+3. Use the inference service in the same docker：
+
+#The default port number of the script is 8000, if 8000 is occupied, you need to change 'request_url="http://127.0.0.1:8000/yuan"' in script 'tools/start_inference_server_api.py' to the used port number.
+
 python tools/start_inference_server_api.py
 
-如果运行成功会返回推理结果
+If the inference service runs successfully, the inference result will be returned
 ```
 
 
-## 51B模型：
+## Yuan 2.0-51B:
 
 ### step1：
 
-首先需要转换ckpt，我们提供的51B的模型文件是16路流水并行-1路张量并行（16pp，1tp）的模型文件，为了提高推理效率，需要将16路流水并行的模型文件转换为4路张量并行的模型文件（适用于80GB GPU），转换流程是：
+Firstly, you need to convert the ckpt.
 
-（16路流水-1路张量）->（16路流水-4路张量）->（1路流水-4路张量）
+The parallelism method of the 51B-models is 16-pipeline-parallelism and 1-tensor--parallelism(16pp, 1tp). In order to improve the parallelism efficiency of the inference, you need to convert parallelism method of the 51B-models from  (16pp, 1tp) to (1pp, 4tp). (Apply to 80GB-GPU)
 
-我们提供了自动转换脚本，可以依次执行完上述流程，使用方式如下：
+The conversion process is as follows:
+
+(16pp, 1tp) -> (16pp, 4tp) -> (1pp, 4tp)
+
+We provide an automatic conversion script that can be used as follows:
 
 ```
 1. vim examples/ckpt_partitions_51B.sh
 
-2. 修改如下三个环境变量（LOAD_CHECKPOINT_PATH，SAVE_SPLITED_CHECKPOINT_PATH，SAVE_CHECKPOINT_PATH）：
+2. Set three environment variables: LOAD_CHECKPOINT_PATH, SAVE_SPLITED_CHECKPOINT_PATH, SAVE_CHECKPOINT_PATH:
 
-LOAD_CHECKPOINT_PATH 表示Yuan2.0开源的原始16路流水并行的模型文件路径，需要路径下面包含latest_checkpointed_iteration.txt这个文件（这个文件会在开源的模型文件中），一个示例如下：
+LOAD_CHECKPOINT_PATH: The path to the base 51B-model(16pp, 1tp), this path needs to contain the 'latest_checkpointed_iteration.txt' file. An example is shown below:
+
 LOAD_CHECKPOINT_PATH=/mnt/51B
 
-SAVE_SPLITED_CHECKPOINT_PATH 表示转换产生的中间文件路径，主要作用于（16路流水-1路张量）->（16路流水-4路张量）产生的结果文件，等脚本完成转换之后可以删除该文件，一个示例如下：
+SAVE_SPLITED_CHECKPOINT_PATH: The path to the temporary 51B-model(16pp, 4tp), which can be removed when all conversions are done. An example is shown below:
+
 SAVE_SPLITED_CHECKPOINT_PATH=./ckpt-51B-mid
 
-SAVE_CHECKPOINT_PATH 表示最终产生的4路张量并行的ckpt，主要作用于（16路流水-4路张量）->（1路流水-4路张量）产生的结果文件，一个示例如下：
+SAVE_CHECKPOINT_PATH: The path to the resulting 51B-model(1pp, 4tp). An example is shown below:
+
 SAVE_CHECKPOINT_PATH=./ckpt-51B-4tp
 
-如果在megatron主目录下面运行脚本，可以不修改TOKENIZER_MODEL_PATH=./tokenizer（因为github主目录下面包含tokenizer），否则需要指定tokenizer路径
+If you run the script in the Yuan home directory, you can use the path: TOKENIZER_MODEL_PATH=./tokenizer (because the Yuan home directory contains the tokenizer), otherwise you need to specify the tokenizer path.
 
 3. bash examples/ckpt_partitions_51B.sh
 ```
 
-在上述步骤完成后，会在`SAVE_CHECKPOINT_PATH`指定的目录下面生成一个4路张量并行的ckpt，可以用于推理服务。
+After the above steps are completed, an 4-way tensor parallel ckpt will be generated in the directory specified by `SAVE_CHECKPOINT_PATH`, which can be used for inference services.
 
 ### step2：
 
 ```
-1. 启动推理服务，需要在脚本examples/run_inference_server_51B.sh中修改环境变量CHECKPOINT_PATH：
+1. Set environment variable 'CHECKPOINT_PATH' in script 'examples/run_inference_server_51B.sh'.
 
 vim examples/run_inference_server_51B.sh
 
-修改环境变量CHECKPOINT_PATH为step1中SAVE_CHECKPOINT_PATH指定的路径，比如以上示例中SAVE_CHECKPOINT_PATH=./ckpt-51B-4tp，那么需要指定examples/run_inference_server_51B.sh中CHECKPOINT_PATH=./ckpt-51B-4tp
+Set environment variable 'CHECKPOINT_PATH' to 'SAVE_CHECKPOINT_PATH' specified in step-1. For example, if in step-1 SAVE_CHECKPOINT_PATH=./ckpt-51B-4tp, you should set CHECKPOINT_PATH=./ckpt-51B-4tp in script examples/run_inference_server_51B.sh
 
-2. 启动推理服务（需要4张80GB GPU卡）：
-#注意，程序默认的端口号为8000，如果8000被占用，需要修改examples/run_inference_server_51B.sh中的环境变量PORT为实际使用的端口号
+2. Start the inference service（Requires 4 x 80GB-GPU）：
+
+#The default port number of the script is 8000, if 8000 is occupied, you need to change the environment variable 'PORT' in examples/run_inference_server_51B.sh to the used port number.
+
 bash examples/run_inference_server_51B.sh
 
-等待程序完成cpkt的加载并出现如下信息后，可以执行下一步调用推理服务：
+After the program finishes loading the cpkt and the following information appears, you can perform the next step to call the inference service:
+
   successfully loaded checkpoint from ./ckpt-51B-4tp at iteration 1
 
  * Serving Flask app 'megatron.text_generation_server'
@@ -119,10 +141,11 @@ bash examples/run_inference_server_51B.sh
  * Running on http://127.0.0.1:8000
  * Running on http://127.0.0.1:8000
 
-3. 在相同docker中调用推理服务：
-#注意，程序默认的端口号为8000，如果8000被占用，需要修改tools/start_inference_server_api.py中的request_url="http://127.0.0.1:8000/yuan"
-中的端口号为实际使用的端口号
+3. Use the inference service in the same docker：
+
+#The default port number of the script is 8000, if 8000 is occupied, you need to change 'request_url="http://127.0.0.1:8000/yuan"' in script 'tools/start_inference_server_api.py' to the used port number.
+
 python tools/start_inference_server_api.py
 
-如果运行成功会返回推理结果
+If the inference service runs successfully, the inference result will be returned
 ```
