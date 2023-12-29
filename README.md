@@ -84,6 +84,8 @@ docker exec -it your_name bash
 
 请注意，不同的微调脚本对应的模型并不相同，请根据需要选择对应的模型。
 
+支持使用[llama-factory进行指令微调](./docs/Yuan2_llama-factory.md)。
+
 ### 模型
 
 我们提供了源2.0有监督微调的模型文件。模型文件可以通过下面的链接下载得到：
