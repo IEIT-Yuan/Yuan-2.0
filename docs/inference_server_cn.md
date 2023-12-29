@@ -1,8 +1,14 @@
 # Yuan2.0 推理 API 部署
 
+  - [ckpt模型推理API部署](#ckpt模型推理API部署)
+  - [HuggingFace模型推理API部署](#HuggingFace模型推理API部署)
+  - [API部署效果测试](#API部署效果测试)
+  
+
+## ckpt模型推理API部署
 -  可以通过如下步骤进行部署：
 
-   第一步，修改脚本文件
+   第一步，修改脚本文件 examples/run_inference_server_~~x~~B.sh
 
     	`TOKENIZER_MODEL_PATH` 表示TOKENIZER相关文件存放路径；
     	`CHECKPOINT_PATH` 表示模型相关文件存放路径；
@@ -12,17 +18,41 @@
   
    第二步，运行仓库中的脚本进行部署：
 
-```bash
-#2.1B模型服务启动命令
-bash examples/run_inference_server_2.1B.sh
+   ```bash
+   #2.1B模型服务启动命令
+   bash examples/run_inference_server_2.1B.sh
+   
+   #51B模型服务启动命令
+   bash examples/run_inference_server_51B.sh
+   
+   #102B模型服务启动命令
+   bash examples/run_inference_server_102B.sh
+   ```
 
-#51B模型服务启动命令
-bash examples/run_inference_server_51B.sh
+## HuggingFace模型推理API部署
+- 可以通过如下步骤进行部署
 
-#102B模型服务启动命令
-bash examples/run_inference_server_102B.sh
-```
+   第一步，修改脚本文件 examples/run_inference_server_hf.sh
 
+    	`HF_PATH` 表示HuggingFace模型相关文件存放路径；
+    	`CUDA_VISIBLE_DEVICES` 表示使用的GPU编号，不同编号之间用逗号隔开；
+    	`PORT` 表示服务使用端口号，一个服务占用一个端口号，用户可根据实际情况自行修改；
+  
+   第二步，运行仓库中的脚本进行部署：
+
+   ```bash
+   bash examples/run_inference_server_hf.sh
+   ```
+   
+- 需要特别注意：若在Windows/CPU中运行，需要手动关闭flash_atten，需要按以下方式修改HuggingFace模型文件代码
+   ```
+   修改 config.json中"use_flash_attention"为 false；
+   注释掉 yuan_hf_model.py中第35、36行；
+   修改yuan_hf_model.py中第271行为 inference_hidden_states_memory = torch.empty(bsz, 2, hidden_states.shape[2], dtype=hidden_states.dtype)
+   ```
+
+
+## API部署效果测试
 
 - 使用Python进行测试
 

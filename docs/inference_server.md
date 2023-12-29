@@ -4,28 +4,58 @@
 
 This document provides instructions for inference-server of Yuan2.0.
 
-## Usage
+
+  - [CKPT model Inference-Server](#CKPT model Inference-Server)
+  - [HuggingFace model Inference-Server](#HuggingFace model Inference-Server)
+  - [API Testing](#API Testing)
+  
+
+## CKPT model Inference-Server
 
 - First step，modify the script file
 
    	`TOKENIZER_MODEL_PATH` indicates the storage path for TOKENIZER related files；
-	`CHECKPOINT_PATH` indicates the storage path for model related files；
-    `GPUS_PER_NODE` indicates the number of GPU cards used for this node, this number should be consistent with the number of parallel paths for model tensors；
-    `CUDA_VISIBLE_DEVICES` indicates the GPU number used, the number of used numbers should be consistent with `GPUS_PER_NODE` ；
-    `PORT` indicates the port number used by the service, one service occupies one port number, the user can modify it according to the actual situation.
+   	`CHECKPOINT_PATH` indicates the storage path for model related files；
+   	`GPUS_PER_NODE` indicates the number of GPU cards used for this node, this number should be consistent with the number of parallel paths for model tensors；
+   	`CUDA_VISIBLE_DEVICES` indicates the GPU number used, the number of used numbers should be consistent with `GPUS_PER_NODE` ；
+   	`PORT` indicates the port number used by the service, one service occupies one port number, the user can modify it according to the actual situation.
   
 - Second step,  run the script in the warehouse for deployment
-```bash
-#2.1B deployment command
-bash examples/run_inference_server_2.1B.sh
+    ```bash
+    #2.1B deployment command
+    bash examples/run_inference_server_2.1B.sh
+    
+    #51B deployment command
+    bash examples/run_inference_server_51B.sh
+    
+    #102B deployment command
+    bash examples/run_inference_server_102B.sh
+    ```
 
-#51B deployment command
-bash examples/run_inference_server_51B.sh
 
-#102B deployment command
-bash examples/run_inference_server_102B.sh
-```
+## HuggingFace model Inference-Server
 
+- First step，modify the script file: examples/run_inference_server_hf.sh
+
+    	`HF_PATH` indicates the storage path for HuggingFace model related files；
+    	`CUDA_VISIBLE_DEVICES` indicates the GPU number used；
+    	`PORT` indicates the port number used by the service, one service occupies one port number, the user can modify it according to the actual situation.
+  
+- Second step,  run the script in the warehouse for deployment
+
+   ```bash
+   bash examples/run_inference_server_hf.sh
+   ```
+   
+- Attention：if running in Windows/CPU, flash_atten needs to be turned off manually, and HuggingFace model file code needs to be modified as follows
+   ```
+   Modify "use_flash_attention" in config.json to false;
+   Comment lines 35 and 36 in yuan_hf_model.py;
+   Modify line 271 in yuan_hf_model.py to inference_hidden_states_memory = torch.empty(bsz, 2, hidden_states.shape[2], dtype=hidden_states.dtype)
+   ```
+
+
+## API Testing
 
 - Testing with Python
 
