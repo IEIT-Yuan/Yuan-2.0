@@ -18,9 +18,13 @@
     - [预训练](#预训练)
     - [模型微调](#模型微调)
     - [模型](#模型)
+    - [Hugging Face版本 ](#hugging-face版本-)
+    - [原始版本 ](#原始版本-)
   - [评测结果](#评测结果)
 
   - [代码调用](#代码调用)
+  - [联系我们](#联系我们)
+  - [招聘公告](#招聘公告)
 
 
 <!-- markdown-toc end -->
@@ -89,13 +93,34 @@ docker exec -it your_name bash
 
 ### 模型
 
-我们提供了源2.0有监督微调的模型文件。模型文件可以通过下面的链接下载得到：
+源2.0 是浪潮信息发布的新一代基础语言大模型。我们开源了全部的3个模型：源2.0-102B、源2.0-51B、源2.0-2B。提供预训练、微调、推理服务的相关脚本，以供研发人员做进一步开发。源2.0是在源1.0的基础上，利用更多样的高质量预训练数据和指令微调数据集，令模型在语义、数学、推理、代码、知识等不同方面具备更强的理解能力。
 
-|    Model     | 序列长度  |                                                                                                                                                                         Download Link                                                                                                                                                                         |
-| :----------: | :------: |:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| 源2.0-102B |    4K    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-102B-hf/files) \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-102B-hf) \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-102B-hf)  \|  [百度网盘](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2-102B-hf) |
-| 源2.0-51B  |    4K    |  [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-51B-hf/files)  \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-51B-hf)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-51B-hf)   \| [百度网盘](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2-51B-hf)  |
-|  源2.0-2B  |    8K    |  [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-2B-hf/files)   \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-2B-hf)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-2B-hf)    \| [百度网盘](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2-2B-hf)   |
+
+🥇🥇🥇 **<font color=#FFC125 >我们提供了源2.0的模型文件，可以通过以下链接进行下载：</font>**
+
+
+### <font color=#FFC125 >Hugging Face版本 </font> 
+
+
+
+|    模型     | 序列长度  |         下载链接         |
+| :----------: | :------: | :---------------------------: |
+| 源2.0-102B-hf |    4K    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-102B-hf/summary) \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-102B-hf) \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-102B-hf)  \|  [百度网盘](https://pan.baidu.com/s/1O4GkPSTPu5nwHk4v9byt7A?pwd=pq74#list/path=%2F) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-102B-hf)|
+| 源2.0-51B-hf  |    4K    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-51B-hf/summary)  \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2.0-51B-hf)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-51B-hf)   \| [百度网盘](https://pan.baidu.com/s/1-qw30ZuyrMfraFtkLgDg0A?pwd=v2nd#list/path=%2F) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-51B-hf)|
+|  源2.0-2B-hf  |    8K    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-2B-hf/summary)   \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-2B-hf)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-2B-hf)    \| [百度网盘](https://pan.baidu.com/s/1nt-03OAnjtZwhiVywj3xGw?pwd=nqef#list/path=%2F) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-2B-hf) |
+
+
+
+### <font color=#FFC125 >原始版本 </font> 
+
+
+|    模型     | 序列长度  |         下载链接         |
+| :----------: | :------: | :---------------------------: |
+| 源2.0-102B |    4K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-102B/summary)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-102B)  \|  [百度网盘](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-102B)|
+| 源2.0-51B  |    4K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-51B/summary)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-51B)   \| [百度网盘](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-51B)|
+|  源2.0-2B  |    8K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-2B/summary)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-2B)    \| [百度网盘](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-2B) |
+
+
 
 源2.0-2B模型支持的序列长度为8192个tokens，源2.0-51B和源2.0-102B模型支持的序列长度为4096个tokens，可以根据用户设备的内存大小设置 `--max-position-embeddings` 和 `--seq-length` 的值。
 
