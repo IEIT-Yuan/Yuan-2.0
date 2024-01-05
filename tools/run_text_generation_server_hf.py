@@ -178,7 +178,7 @@ if __name__ == "__main__":
     args.device = torch.device("cuda:{0}".format(args.gpu) if torch.cuda.is_available() else 'cpu')  # 设备
 
     print("Creat tokenizer...")
-    tokenizer = LlamaTokenizer.from_pretrained(args.load)
+    tokenizer = LlamaTokenizer.from_pretrained(args.load, add_eos_token=False, add_bos_token=False, eos_token='<eod>')
     tokenizer.add_tokens(['<sep>', '<pad>', '<mask>', '<predict>', '<FIM_SUFFIX>', '<FIM_PREFIX>', '<FIM_MIDDLE>', '<commit_before>',
          '<commit_msg>', '<commit_after>', '<jupyter_start>', '<jupyter_text>', '<jupyter_code>', '<jupyter_output>', '<empty_output>'], special_tokens=True)
 
@@ -201,7 +201,10 @@ if __name__ == "__main__":
     # )
     # model = AutoModelForCausalLM.from_pretrained(args.load, device_map=device_map, quantization_config=bnb_config, trust_remote_code=True).eval()
 
-    model = AutoModelForCausalLM.from_pretrained(args.load, device_map=device_map, trust_remote_code=True).eval()
+    if device_map == 'cpu':
+        model = AutoModelForCausalLM.from_pretrained(args.load, device_map=device_map, trust_remote_code=True).eval()
+    else:
+        model = AutoModelForCausalLM.from_pretrained(args.load, device_map=device_map, torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
 
     server = YuanServer(model, tokenizer, args)
     server.run("0.0.0.0", port=int(os.environ.get("PORT", 8000)))

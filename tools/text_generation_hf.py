@@ -17,7 +17,7 @@ bnb_config = BitsAndBytesConfig(
 
 print("Creat tokenizer...")
 path = "your_model_hf_path"
-tokenizer = LlamaTokenizer.from_pretrained(path)
+tokenizer = LlamaTokenizer.from_pretrained(path, add_eos_token=False, add_bos_token=False, eos_token='<eod>')
 tokenizer.add_tokens(['<sep>', '<pad>', '<mask>', '<predict>', '<FIM_SUFFIX>', '<FIM_PREFIX>', '<FIM_MIDDLE>','<commit_before>','<commit_msg>','<commit_after>','<jupyter_start>','<jupyter_text>','<jupyter_code>','<jupyter_output>','<empty_output>'], special_tokens=True)
 
 print("Creat model...")

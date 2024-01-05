@@ -10,6 +10,7 @@
 
 - [源2.0](#源20)
   - [目录](#目录)
+  - [持续更新🔥🔥](#持续更新)
   - [介绍](#介绍)
   - [源大模型共训计划](#源大模型共训计划)
   - [快速启动](#快速启动)
@@ -21,13 +22,27 @@
     - [Hugging Face版本 ](#hugging-face版本-)
     - [原始版本 ](#原始版本-)
   - [评测结果](#评测结果)
-
   - [代码调用](#代码调用)
+  - [源2.0 + 源Chat部署](#源20--源chat部署)
+    - [linux部署](#linux部署)
+    - [Windows部署](#windows部署)
+      - [🔘 GPU部署](#-gpu部署)
+      - [🔘 CPU部署](#-cpu部署)
   - [联系我们](#联系我们)
   - [招聘公告](#招聘公告)
 
 
 <!-- markdown-toc end -->
+
+
+
+
+## 持续更新🔥🔥
+* [2024-01-04] [使用 源Chat(YuanChat) 搭建对话应用](https://github.com/IEIT-Yuan/YuanChat/tree/main)
+* [2024-01-02] [增加 Hugging Face 版本模型下载链接](https://github.com/IEIT-Yuan/Yuan-2.0?tab=readme-ov-file#hugging-face%E7%89%88%E6%9C%AC-)
+
+
+
 
 ## 介绍
 
@@ -146,7 +161,53 @@ docker exec -it your_name bash
 
 可以通过调用推理服务，向推理服务发送请求实现模型的调用，[源2.0 推理服务](./docs/inference_server.md)
 
-详细启动推理服务的流程可以参考[Yuan2_inference_guide文档](./docs/Yuan2_inference_guide_cn.md)
+详细启动推理服务的流程可以参考 [Yuan2_inference_guide文档](./docs/Yuan2_inference_guide_cn.md)
+
+
+## 源2.0 + 源Chat部署
+
+使用 [源Chat（YuanChat）](https://github.com/IEIT-Yuan/YuanChat) 可以快速构建基于源2.0大模型的对话应用，源Chat 提供了一种简单的交互方式，支持在linux部署和Windows 操作系统上的便捷部署。
+
+
+### linux部署
+
+
+**Step 1:** 根据 [源2.0 推理服务](./docs/inference_server_cn.md)，获取推理服务的 request url：`http://127.0.0.1:8000` ，支持ckpt和HuggingFace两种模型方式部署
+
+**Step 2:** 根据 [源Chat部署文档](https://github.com/IEIT-Yuan/YuanChat/blob/main/README.md) 完成源Chat的部署
+
+**Step 3:** 在浏览器中访问链接：http://localhost:5050，验证是否部署正确
+
+
+### Windows部署
+#### 🔘 GPU部署
+**Step 1:** 根据 [源2.0 推理服务](./docs/inference_server_cn.md)，获取推理服务的 request url：`http://127.0.0.1:8000` ，支持ckpt和HuggingFace两种模型方式部署
+
+**Step 2:** 根据 [源Chat部署文档](https://github.com/IEIT-Yuan/YuanChat/blob/main/README.md) 完成源Chat的部署
+
+**Step 3:** 在浏览器中访问链接：http://localhost:5050，验证是否部署正确
+
+#### 🔘 CPU部署
+仅支持HuggingFace模型方式部署
+
+**Step 1:** 通过修改HuggingFace模型文件代码手动关闭flash_atten，具体如下：
+   
+   ```sh
+   修改 config.json中"use_flash_attention"为 false；
+   
+   注释掉 yuan_hf_model.py中第35、36行；
+   
+   修改yuan_hf_model.py中第271行为 inference_hidden_states_memory = torch.empty(bsz, 2, hidden_states.shape[2], dtype=hidden_states.dtype)
+   ```
+**Step 2:** 根据 [Hugging Face 模型推理api部署](https://github.com/IEIT-Yuan/Yuan-2.0/blob/main/docs/inference_server_cn.md#huggingface%E6%A8%A1%E5%9E%8B%E6%8E%A8%E7%90%86api%E9%83%A8%E7%BD%B2) ，获取推理服务的 request url：`http://127.0.0.1:8000` 
+
+**Step 3:** 根据 [源Chat部署文档](https://github.com/IEIT-Yuan/YuanChat/blob/main/README.md) 完成源Chat的部署
+
+**Step 4:** 在浏览器中访问链接：`http://localhost:5050`，验证是否部署正确
+
+详细部署方案可以参考 [源2.0](https://github.com/IEIT-Yuan/Yuan-2.0/tree/main) 与 [源Chat](https://github.com/IEIT-Yuan/YuanChat/) 
+
+
 
 ## 联系我们
 1.给我们发邮件：air_service@ieisystem.com
