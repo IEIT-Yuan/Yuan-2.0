@@ -190,15 +190,8 @@ docker exec -it your_name bash
 #### 🔘 CPU部署
 仅支持HuggingFace模型方式部署
 
-**Step 1:** 通过修改HuggingFace模型文件代码手动关闭flash_atten，具体如下：
-   
-   ```sh
-   修改 config.json中"use_flash_attention"为 false；
-   
-   注释掉 yuan_hf_model.py中第35、36行；
-   
-   修改yuan_hf_model.py中第271行为 inference_hidden_states_memory = torch.empty(bsz, 2, hidden_states.shape[2], dtype=hidden_states.dtype)
-   ```
+**Step 1:** 通过修改HuggingFace模型配置文件手动关闭flash_atten，具体如下：将[config_cpu.json](https://huggingface.co/IEITYuan/Yuan2-2B-hf/blob/main/config_cpu.json) 内容替代[config.json](https://huggingface.co/IEITYuan/Yuan2-2B-hf/blob/main/config.json), 将[yuan_hf_model_cpu.py](https://huggingface.co/IEITYuan/Yuan2-2B-hf/blob/main/yuan_hf_model_cpu.py) 内容替代[yuan_hf_model.py](https://huggingface.co/IEITYuan/Yuan2-2B-hf/blob/main/yuan_hf_model.py)
+
 **Step 2:** 根据 [Hugging Face 模型推理api部署](https://github.com/IEIT-Yuan/Yuan-2.0/blob/main/docs/inference_server_cn.md#huggingface%E6%A8%A1%E5%9E%8B%E6%8E%A8%E7%90%86api%E9%83%A8%E7%BD%B2) ，获取推理服务的 request url：`http://127.0.0.1:8000` 
 
 **Step 3:** 根据 [源Chat部署文档](https://github.com/IEIT-Yuan/YuanChat/blob/main/README.md) 完成源Chat的部署
