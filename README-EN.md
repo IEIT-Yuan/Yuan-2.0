@@ -78,6 +78,7 @@ We also have provided the supervised fine-tuning script. See documentation [here
 | Yuan2.0-102B-hf |    4K    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-102B-hf/summary) \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-102B-hf) \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-102B-hf)  \|  [百度网盘](https://pan.baidu.com/s/1O4GkPSTPu5nwHk4v9byt7A?pwd=pq74#list/path=%2F) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-102B-hf)|
 | Yuan2.0-51B-hf  |    4K    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-51B-hf/summary)  \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2.0-51B-hf)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-51B-hf)   \| [百度网盘](https://pan.baidu.com/s/1-qw30ZuyrMfraFtkLgDg0A?pwd=v2nd#list/path=%2F) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-51B-hf)|
 |  Yuan2.0-2B-hf  |    8K    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-2B-hf/summary)   \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-2B-hf)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-2B-hf)    \| [百度网盘](https://pan.baidu.com/s/1nt-03OAnjtZwhiVywj3xGw?pwd=nqef#list/path=%2F) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-2B-hf) |
+|  Yuan2.0-2B-Janux-hf <sup><font color="#FFFF00">*New*</font><br /></sup> |    8K    |[ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2-2B-Janus-hf/files)   \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-2B-Janus-hf) \| OpenXlab  \| [百度网盘](https://pan.baidu.com/s/1f7l-rSVlYAij33htR51TEg?pwd=hkep ) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-2B-Janus-hf)|
 
 
 
@@ -89,6 +90,8 @@ We also have provided the supervised fine-tuning script. See documentation [here
 | Yuan2.0-102B |    4K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-102B/summary)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-102B)  \|  [百度网盘](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-102B)|
 | Yuan2.0-51B  |    4K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-51B/summary)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-51B)   \| [百度网盘](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-51B)|
 |  Yuan2.0-2B  |    8K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-2B/summary)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-2B)    \| [百度网盘](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-2B) |
+|  源2.0-2B-Janux <sup><font color="#FFFF00">*New*</font><br /></sup> |    8K    |[ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2-2B-Janus/files)   \| OpenXlab  \| [百度网盘](https://pan.baidu.com/s/1hCHI9LwxborXWABaShwl4w?pwd=sdyq) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-2B-Janus)|
+
 
 
 Yuan2.0-2B model support sequence length up to 8192 tokens,  Yuan2.0-51B and Yuan2.0-102B models support sequence length up to 4096 tokens, you and set `--max-position-embeddings` and `--seq-length` values according to your device memory.
