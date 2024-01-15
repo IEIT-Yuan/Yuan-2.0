@@ -60,8 +60,9 @@ class EvalDataset(ABC, Dataset):
             lines = f.readlines()
             for ii, line in enumerate(lines):
                 line = line.strip()
+                gsm8k_prompt = "详细分析并求解以下数学问题。\n"
                 index = line.find('[SEP]')
-                line = line[:index] + '<sep>'
+                line = gsm8k_prompt + line[:index] + '<sep>'
                 self.problems.append(line)
                 self.keys.append(ii)
                 self.answers.append('')

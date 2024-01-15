@@ -109,8 +109,11 @@ def eval_gen_res(txt_files_path,content_yuan_all_dict,len_ori):
         q_text = qa_content[i].split('[SEP]')[0].strip()
         ans_all = qa_content[i].split('[SEP]')[1].replace('<br>','<n>').replace('\!','').replace('\;','').replace('\,','')
         ans_all = ans_all.replace('$$',' ').replace('$','').replace(' ','').replace('≈','=')
+        for key in list(content_yuan_all_dict.keys()):
+            if q_text in key or key in q_text: 
+                ans_true = content_yuan_all_dict[key]
+                break
 
-        ans_true = content_yuan_all_dict[q_text]
         ans_true = replace_transmean(ans_true)
         match_regex_ans = '(?<=[^0-9+\-*/])'+ans_true+'(?![xyzXYZ\d.+\-*/=()√₀\²³‰¼½¾_×¬^,!:±×÷∶∧∨∑∏∪∷√≡≠><≤≥])'
         split_n = ans_all.split('<n>')

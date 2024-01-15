@@ -59,9 +59,10 @@ class EvalDataset(ABC, Dataset):
         with open(data_path, 'r') as f:
             lines = f.readlines()
             for ii, line in enumerate(lines):
-                line = line.strip()
+                line = line.strip().replace("<n>", "\n")
+                mathqa_prompt = "给出如下问题的分析，并从问题后的选项中选择出正确答案。\n"
                 index = line.find('[SEP]')
-                line = line[:index] + '<sep>'
+                line = mathqa_prompt + line[:index] + '\n<sep>'
                 self.problems.append(line)
                 self.keys.append(ii)
                 self.answers.append('')

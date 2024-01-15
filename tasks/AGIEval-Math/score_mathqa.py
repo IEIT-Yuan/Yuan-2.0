@@ -212,7 +212,7 @@ def process_txt_files(txt_files_path, content_yuan_all_dict, len_ori):
         ans_gen = get_ans_gen_letter(qa_content[i])
         ans_true = ''
         for key in list(content_yuan_all_dict.keys()):
-            if q_text in key:
+            if q_text in key or key in q_text:
                 ans_true = content_yuan_all_dict[key]
                 break
         if not ans_true:
