@@ -40,7 +40,7 @@
 
 ## 持续更新🔥🔥🔥
 
-* [2024-01-13] [新版最强 2B 模型发布：Yuan2-2B-Janus-hf](https://github.com/IEIT-Yuan/YuanChat/tree/main)
+* [2024-01-13] [新版 2B 模型发布：Yuan2-2B-Janus-hf](https://github.com/IEIT-Yuan/YuanChat/tree/main)
 * [2024-01-04] [使用 源Chat(YuanChat) 搭建对话应用](https://github.com/IEIT-Yuan/YuanChat/tree/main)
 * [2024-01-02] [增加 Hugging Face 版本模型下载链接](https://github.com/IEIT-Yuan/Yuan-2.0?tab=readme-ov-file#hugging-face%E7%89%88%E6%9C%AC-)
 
@@ -129,7 +129,7 @@ docker exec -it your_name bash
 | 源2.0-102B-hf |    4K    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-102B-hf/summary) \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-102B-hf) \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-102B-hf)  \|  [百度网盘](https://pan.baidu.com/s/1O4GkPSTPu5nwHk4v9byt7A?pwd=pq74#list/path=%2F) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-102B-hf) |
 | 源2.0-51B-hf  |    4K    | [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-51B-hf/summary)  \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2.0-51B-hf)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-51B-hf)   \| [百度网盘](https://pan.baidu.com/s/1-qw30ZuyrMfraFtkLgDg0A?pwd=v2nd#list/path=%2F) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-51B-hf) |
 |  源2.0-2B-hf  |    8K    |  [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2.0-2B-hf/summary)   \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-2B-hf)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-2B-hf)    \| [百度网盘](https://pan.baidu.com/s/1nt-03OAnjtZwhiVywj3xGw?pwd=nqef#list/path=%2F) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-2B-hf)   |
-|  源2.0-2B-Janux-hf <sup><font color="#FFFF00">*New*</font><br /></sup> |    8K    |[ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2-2B-Janus-hf/files)   \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-2B-Janus-hf) \| OpenXlab  \| [百度网盘](https://pan.baidu.com/s/1f7l-rSVlYAij33htR51TEg?pwd=hkep ) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-2B-Janus-hf)|
+|  源2.0-2B-Janux-hf <sup><font color="#FFFF00">*New*</font><br /></sup> |    8K    |  [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2-2B-Janus-hf/files)   \| [HuggingFace](https://huggingface.co/IEITYuan/Yuan2-2B-Janus-hf) \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-2B-Janus-hf)  \| [百度网盘](https://pan.baidu.com/s/1f7l-rSVlYAij33htR51TEg?pwd=hkep ) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-2B-Janus-hf)                                 |
 
 
 
@@ -138,12 +138,12 @@ docker exec -it your_name bash
 ### <font color=#FFC125 >原始版本 </font> 
 
 
-|    模型     | 序列长度  |         下载链接         |
-| :----------: | :------: | :---------------------------: |
-| 源2.0-102B |    4K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-102B/summary)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-102B)  \|  [百度网盘](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-102B)|
-| 源2.0-51B  |    4K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-51B/summary)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-51B)   \| [百度网盘](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-51B)|
-|  源2.0-2B  |    8K    | [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-2B/summary)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-2B)    \| [百度网盘](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-2B) |
-|  源2.0-2B-Janux <sup><font color="#FFFF00">*New*</font><br /></sup> |    8K    |[ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2-2B-Janus/files)   \| OpenXlab  \| [百度网盘](https://pan.baidu.com/s/1hCHI9LwxborXWABaShwl4w?pwd=sdyq) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-2B-Janus)|
+|    模型     | 序列长度  |                                                                                                                                                                           下载链接                                                                                                                                                                           |
+| :----------: | :------: |:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| 源2.0-102B |    4K    |                             [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-102B/summary)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-102B)  \|  [百度网盘](https://pan.baidu.com/s/1Tb9W6hEWS4bMkaE3p5s1fw?pwd=xrfo) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-102B)                              |
+| 源2.0-51B  |    4K    |                               [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-51B/summary)  \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-51B)   \| [百度网盘](https://pan.baidu.com/s/1bOypWMepdh9GFK_hHXVQbQ?pwd=1uw3) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-51B)                               |
+|  源2.0-2B  |    8K    |                               [ModelScope](https://www.modelscope.cn/models/YuanLLM/Yuan2.0-2B/summary)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2.0-2B)    \| [百度网盘](https://pan.baidu.com/s/1Xj8Mi2tPwuuVu7Cb0tCbtw?pwd=qxpa) \| [WiseModel](https://wisemodel.cn/models/IEIT-Yuan/Yuan2.0-2B)                                |
+|  源2.0-2B-Janux <sup><font color="#FFFF00">*New*</font><br /></sup> |    8K    |                             [ModelScope](https://modelscope.cn/models/YuanLLM/Yuan2-2B-Janus/files)   \| [OpenXlab](https://openxlab.org.cn/models/detail/YuanLLM/Yuan2-2B-hf)  \| [百度网盘](https://pan.baidu.com/s/1hCHI9LwxborXWABaShwl4w?pwd=sdyq) \| [WiseModel](https://www.wisemodel.cn/models/IEIT-Yuan/Yuan2-2B-Janus)                             |
 
 
 
