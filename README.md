@@ -40,9 +40,10 @@
 
 ## 持续更新🔥🔥🔥
 
-* [2024-01-13] [新版 2B 模型发布：Yuan2-2B-Janus-hf](https://github.com/IEIT-Yuan/YuanChat/tree/main)
-* [2024-01-04] [使用 源Chat(YuanChat) 搭建对话应用](https://github.com/IEIT-Yuan/YuanChat/tree/main)
-* [2024-01-02] [增加 Hugging Face 版本模型下载链接](https://github.com/IEIT-Yuan/Yuan-2.0?tab=readme-ov-file#hugging-face%E7%89%88%E6%9C%AC-)
+* [2024-01-13] [新版 2B 模型发布：Yuan2-2B-Janus-hf](https://huggingface.co/IEITYuan/Yuan2-2B-Janus-hf)：**从评测结果上来看，新版本的Yuan2-2B模型在推理、代码、对话等领域，均取得了显著的成果。准确率方面，HumanEval的评测结果从54.9%提升至61.5%，GSM8K的评测结果从66.6%提升至70.2% 。**
+
+* [2024-01-04] [使用 源Chat(YuanChat) 搭建对话应用](https://github.com/IEIT-Yuan/YuanChat/tree/main):源Chat 是Yuan-2.0 项目的一部分, 作为Yuan-2.0的一个客户端应用. 源Chat 提供了一种简单的交互方式，可以让用户很轻松的使用 Yuan-2.0, 用户可以很方便的进行测试以及使用。
+* [2024-01-02] [增加 Hugging Face 版本模型下载链接](https://github.com/IEIT-Yuan/Yuan-2.0?tab=readme-ov-file#hugging-face%E7%89%88%E6%9C%AC-),详情参见本页中的章节。
 
 
 
@@ -50,9 +51,6 @@
 ## 介绍
 
 源2.0 是浪潮信息发布的新一代基础语言大模型。我们开源了全部的3个模型源2.0-102B，源2.0-51B和源2.0-2B。并且我们提供了预训练，微调，推理服务的相关脚本，以供研发人员做进一步的开发。源2.0是在源1.0的基础上，利用更多样的高质量预训练数据和指令微调数据集，令模型在语义、数学、推理、代码、知识等不同方面具备更强的理解能力。
-
-**<font color="#FFFF00">新版本Yuan2.0-2B模型已发布：</font>**
-[**Yuan2-2B-Janus-hf**](https://github.com/IEIT-Yuan/Yuan-2.0/tree/main?tab=readme-ov-file#hugging-face%E7%89%88%E6%9C%AC-) 从评测结果上来看，新版本的Yuan2-2B模型在推理、代码、对话等领域，均取得了显著的成果。准确率方面，HumanEval的评测结果从54.9%提升至61.5%，GSM8K的评测结果从66.6%提升至70.2% 。
 
 -----
 
