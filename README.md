@@ -171,6 +171,8 @@ docker exec -it your_name bash
 
 详细启动推理服务的流程可以参考 [Yuan2_inference_guide文档](./docs/Yuan2_inference_guide_cn.md)
 
+可以使用[replicate.com/ieit-yuan](https://replicate.com/ieit-yuan)进行yuan2.0的线上api调用 ，具体操作方式参考replicate的官方文档。在LangChain和llamaIndex中使用replicate的教程可参考：https://python.langchain.com/docs/integrations/providers/replicate 和 https://docs.llamaindex.ai/en/stable/api_reference/llms/replicate.html。
+
 
 ## 源2.0 + 源Chat部署
 
