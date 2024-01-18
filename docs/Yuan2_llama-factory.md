@@ -12,10 +12,10 @@
 - cd  LLaMA-Factory
 - pip  config  set  global.index-url  https://pypi.tuna.tsinghua.edu.cn/simple
 - pip  install  -r  requirements.txt  
-- pip  install  transformers_stream_generator  deepspeed 
+- pip  install  transformers_stream_generator  deepspeed "bitsandbytes>=0.39.0"
 
 ## 准备模型及数据
-- 获取[yuan2.0](https://github.com/IEIT-Yuan/Yuan-2.0?tab=readme-ov-file#%E6%A8%A1%E5%9E%8B)  huggingface模型文件： 
+- 获取[yuan2.0](https://github.com/IEIT-Yuan/Yuan-2.0?tab=readme-ov-file#hugging-face%E7%89%88%E6%9C%AC-)  huggingface模型文件： 
 - 准备数据：<br />（1）自定义数据集时，使用[llama-factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/data/README_zh.md)所要求的数据格式，如使用下述json格式的文件；将准备好的数据集信息(文件路径、文件哈希值等)
 添加进入llama-factory中的dataset_info.json。<br />（2）使用llama-factory中已有的数据集做微调，直接指定数据集名称不需要做其它修改，如--dataset alpca_en代表使用alpaca-data 52K 数据集。
 ```
@@ -130,3 +130,7 @@ deepspeed --num_gpus=8 src/train_bash.py \
 |Full  |16 bit|40GB|1000GB|2000GB|
 |lora  |16 bit|7GB|120GB |230GB  |
 |Qlora |4 bit|5GB|40GB  |80GB   |
+
+## 视频及文档教程
+1. [快速上手！LLaMa-Factory最新微调实践，轻松实现专属大模型](https://blog.csdn.net/annawanglhong/article/details/135650112?csdn_share_tail=%7B%22type%22%3A%22blog%22%2C%22rType%22%3A%22article%22%2C%22rId%22%3A%22135650112%22%2C%22source%22%3A%22annawanglhong%22%7D)<br/>
+2. [step by step，yuan2.0模型微调演示demo](https://www.bilibili.com/video/BV1EK411e7GV/?spm_id_from=333.999.0.0&vd_source=7aacb5bd000901430425954763fb6b64)
