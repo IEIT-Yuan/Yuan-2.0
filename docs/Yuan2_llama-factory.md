@@ -102,6 +102,70 @@ deepspeed --num_gpus=8 src/train_bash.py \
   "zero_allow_untested_optimizer": true
 }
 ```
+- 多机多卡微调示例
+<br />可以使用torchrun或deepspeed提交脚本，完成多机多卡的训练,以下为两个节点16卡的微调脚本，假设10.10.10.1为主节点
+```
+主节点：
+torchrun --nnodes 2 --node_rank 0 --nproc_per_node=8 --master-addr 10.10.10.1 --master_port 10086 src/train_bash.py \
+        --stage sft \
+       	--model_name_or_path ${model_paths}  \
+       	--do_train  \
+    	--dataset alpaca_en \
+       	--finetuning_type full  \
+       	--output_dir test_checkpoint \
+	    --overwrite_cache  \
+    	--per_device_train_batch_size 4 \
+	    --per_device_eval_batch_size 4 \
+	    --gradient_accumulation_steps 2 \
+	    --preprocessing_num_workers 16 \
+	    --lr_scheduler_type cosine \
+	    --logging_steps 10   \
+	    --save_steps 10000 \
+	    --learning_rate 5e-5 \
+	    --max_grad_norm 0.5 \
+	    --num_train_epochs 0.5 \
+	    --evaluation_strategy no \
+	    --gradient_checkpointing True \
+	    --plot_loss \
+	    --bf16 \
+	    --deepspeed ./playground/zero${stage}_ds_woloading.json \
+	    --template yuan \
+	    --overwrite_output_dir \
+	    --cutoff_len 2048 \
+	    --sft_packing 
+
+其它节点：
+torchrun --nnodes 2 --node_rank 1 --nproc_per_node=8 --master-addr 10.10.10.1 --master_port 10086 src/train_bash.py \
+        --stage sft \
+       	--model_name_or_path ${model_paths}  \
+       	--do_train  \
+    	--dataset alpaca_en \
+       	--finetuning_type full  \
+       	--output_dir test_checkpoint \
+	    --overwrite_cache  \
+    	--per_device_train_batch_size 4 \
+	    --per_device_eval_batch_size 4  \
+	    --gradient_accumulation_steps 2 \
+	    --preprocessing_num_workers 16 \
+	    --lr_scheduler_type cosine \
+	    --logging_steps 10   \
+	    --save_steps 10000 \
+	    --learning_rate 5e-5 \
+	    --max_grad_norm 0.5 \
+	    --num_train_epochs 0.5 \
+	    --evaluation_strategy no \
+	    --gradient_checkpointing True \
+	    --plot_loss \
+	    --bf16 \
+	    --deepspeed ./playground/zero${stage}_ds_woloading.json \
+	    --template yuan \
+	    --overwrite_output_dir \
+	    --cutoff_len 2048 \
+	    --sft_packing 
+
+也可以使用deepspeed来提交脚本：
+deepspeed  --include "10.10.10.1:6,7@10.10.10.2:6,7"  --master_addr 10.10.10.1 --master_port 10086 src/train_bash.py
+```
 
 ## lora及Qlora高效微调
 <br />对大模型进行全量微调是一件昂贵的事情，我们可以使用高效微调的方法，通过给大模型添加额外参数，对新添加的参数进行微调进而改进大模型性能，如[lora](https://arxiv.org/abs/2106.09685)、[Qlora](https://arxiv.org/abs/2305.14314)高效微调方案。
@@ -130,6 +194,7 @@ deepspeed --num_gpus=8 src/train_bash.py \
 |Full  |16 bit|40GB|1000GB|2000GB|
 |lora  |16 bit|7GB|120GB |230GB  |
 |Qlora |4 bit|5GB|40GB  |80GB   |
+
 
 ## 视频及文档教程
 1. [快速上手！LLaMa-Factory最新微调实践，轻松实现专属大模型](https://blog.csdn.net/annawanglhong/article/details/135650112?csdn_share_tail=%7B%22type%22%3A%22blog%22%2C%22rType%22%3A%22article%22%2C%22rId%22%3A%22135650112%22%2C%22source%22%3A%22annawanglhong%22%7D)<br/>
