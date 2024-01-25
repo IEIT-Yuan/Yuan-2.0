@@ -50,6 +50,7 @@ GPT_ARGS="
     --max-position-embeddings 8192 \
     --no-async-tensor-model-parallel-allreduce \
     --bf16 \
+    --repetition-penalty 1.0 \
     --temp $TEMP \
     --top_p $TOP_P \
     --top_k $TOP_K \

@@ -493,6 +493,10 @@ def _add_inference_args(parser):
                        'Bert embedder.')
     group.add_argument('--inference-server', action='store_true',
                        help='whether to use inference-server.')
+    group.add_argument('--repetition-penalty',
+                       type=float,
+                       default=1.0,
+                       help='Repetition_penalty.')    
     return parser
 
 
