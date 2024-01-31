@@ -85,6 +85,16 @@ def score_and_return_on_first_stage(model, tokens, lengths):
     
     return tokens, lengths, output_log_probs
 
+def repetition_penalty(logits, repetition_penalty, used_tokens):
+    """ REF paper: 
+          https://arxiv.org/pdf/1909.05858.pdf
+    """
+    if used_tokens is not None and repetition_penalty != 1.0:
+        logits_update = torch.gather(logits, 2, used_tokens)
+        logits = torch.scatter(logits, 2, used_tokens,
+                               logits_update / repetition_penalty)
+    return logits
+
 def generate_tokens_probs_and_return_on_first_stage(
         model, tokens, lengths,
         return_output_log_probs=False,
@@ -175,6 +185,7 @@ def generate_tokens_probs_and_return_on_first_stage(
         attention_mask, position_ids = _build_attention_mask_and_position_ids(
             tokens)
         prev_context_length = 0
+        all_generated_indices = None
         for context_length in range(min_prompt_length, max_sequence_length):
 
             # Pick the slice that we need to pass through the network.
@@ -193,12 +204,22 @@ def generate_tokens_probs_and_return_on_first_stage(
                 assert logits is not None
 
                 # Sample.
-                last_token_logits = logits[:, -1, :]
+                repetition_penalty_value = args.repetition_penalty if 'repetition_penalty' in args else 1.0
+                assert 1.0 <= repetition_penalty_value <= 100.0, 'repetition_penalty should be in [1.0, 100.0].'
+                if repetition_penalty_value == 1.0:
+                    last_token_logits = logits[:, -1, :]
+                else:
+                    last_token_logits = logits[:, -1, :].to(torch.float32)
+
+                    last_token_logits = repetition_penalty(
+                        last_token_logits.unsqueeze(1), repetition_penalty_value,
+                        all_generated_indices).squeeze(1)
+
                 new_sample = sample(last_token_logits,
                                     top_k=top_k,
                                     top_p=top_p,
                                     temperature=temperature,
-                                    vocab_size=tokenizer.vocab_size)
+                                    vocab_size=len(tokenizer))
                 if top_p > 0.0 and top_p_decay > 0.0:
                     top_p = top_p * top_p_decay
                     if top_p_bound > 0.0:
@@ -209,6 +230,16 @@ def generate_tokens_probs_and_return_on_first_stage(
                 started = lengths <= context_length
                 # Update the tokens.
                 tokens[started, context_length] = new_sample[started]
+
+                # Update the all_generated_indices.
+                if repetition_penalty_value > 1.0:
+                    indices = torch.unsqueeze(tokens[:, 1:context_length + 1], 2)
+                    if all_generated_indices is None:
+                        all_generated_indices = indices.transpose(1, 2)
+                    else:
+                        all_generated_indices = torch.cat(
+                            [all_generated_indices,
+                            indices.transpose(1, 2)], 2)
 
                 # Calculate the log probabilities.
                 if return_output_log_probs:
