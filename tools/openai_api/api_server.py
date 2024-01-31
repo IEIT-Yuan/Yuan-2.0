@@ -54,7 +54,7 @@ TOKENIZER_PATH = os.environ.get("TOKENIZER_PATH", MODEL_PATH)
 
 # set Embedding Model path
 EMBEDDING_PATH = os.environ.get('EMBEDDING_PATH', 'BAAI/bge-large-zh-v1.5')
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def _gc(forced: bool = False):
     # global args
@@ -153,6 +153,7 @@ class ChatCompletionRequest(BaseModel):
     repetition_penalty: Optional[float] = 1.2
     frequency_penalty: Optional[float]
     presence_penalty: Optional[float]
+    user: Optional[str] = None
 
 
 class ChatCompletionResponseChoice(BaseModel):
@@ -230,7 +231,7 @@ def register_model_list(model_card: ModelCard):
     """
     id = model_card.id.lower()
     assert (
-            id in model_list
+        id in model_list
     ), f"{id} has been registered, register info: {model_list[id]}."
 
     model_list[id] = model_card
@@ -256,7 +257,13 @@ async def create_chat_completion(request: ChatCompletionRequest):
         "user",
         "messages",
     }
-    request.model_dump(exclude=exclude)
+    kwargs = request.model_dump(exclude=exclude)
+
+    prompts = tokenizer.apply_chat_template(request.messages, tokenize=False)
+    logger.debug(f"==== prompts ====\n{prompts}")
+
+    input_ids = tokenizer.apply_chat_template(request.messages, tokenize=True, add_generation_prompt=False, return_tensors="pt")
+
 
     gen_params = dict(
         messages=request.messages,
@@ -662,6 +669,62 @@ def load_model_and_tokenizer(model_path: str, device_map):
     )
 
     return model, tokenizer
+
+def postprocess(output_text, stop):
+    # 后处理输出
+    # 这里可以实现一些后处理的逻辑，比如去除重复，过滤敏感词，添加标点等
+    # 这里只是一个简单的示例，你可以根据你的需要修改它
+    output_text = output_text.replace('<unk>', '').replace('▃', '\n').replace('<n>', '\n').replace('▂', ' ')
+    output_text = output_text.lstrip("<sep>").rstrip(stop)
+    return output_text
+
+
+def _generate(model, tokenizer, kwargs):
+    model.eval()
+    with torch.no_grad():
+        input_text = generate_prompts(tokenizer, kwargs["messages"])
+        input_ids = tokenizer(input_text, return_tensors="pt").input_ids.to(self.device)
+
+        # 生成输出
+        output_ids = model.generate(
+            input_ids=input_ids,
+            max_length=kwargs["max_length"],
+            temperature=kwargs["temperature"],
+            top_k=kwargs["top_k"],
+            top_p=kwargs["top_p"],
+            repetition_penalty=kwargs["repetition_penalty"],
+            do_sample=kwargs["do_sample"],
+        )
+        output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)  # 对输出进行解码
+        output_text = self.postprocess(output_text, kwargs["stop"])  # 后处理输出
+    return output_text  # 返回输出
+
+
+def stream_inference(model, tokenizer, kwargs):
+    input_text = generate_prompts(tokenizer, kwargs["messages"])
+    input_ids = tokenizer(input_text, return_tensors="pt").input_ids.to(self.device)
+
+    # 初始化生成的文本
+    generated_text = ""
+
+    # 开始生成文本，直到遇到结束标记
+    while kwargs["stop"] not in generated_text:
+        # 使用模型生成下一个词
+        with torch.no_grad():
+            output = model(input_ids)
+            next_token_logits = output.logits[:, -1, :]
+            next_token_id = torch.argmax(next_token_logits, dim=-1)
+
+        # 将生成的词添加到文本中
+        generated_text += tokenizer.decode(next_token_id)
+
+        # 更新输入，以便生成下一个词
+        input_ids = torch.cat([input_ids, next_token_id.unsqueeze(1)], dim=-1)
+
+        yield generated_text.lstrip("<sep>").rstrip(kwargs["stop"])
+        # 控制生成的最大长度，以防止无限循环
+        if input_ids.shape[1] >= kwargs["max_length"]:
+            break
 
 
 def generate_prompts(tokenizer, messages):
