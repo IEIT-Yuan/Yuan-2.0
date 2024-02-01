@@ -85,7 +85,7 @@
     ]
   },
 ```
-- 使用fastchat 中定制的yuan2.0训练脚本文件，具体操作如下
+## 使用fastchat 中定制的yuan2.0训练脚本文件
 
 ```
 在fastchat/train/train_mem.py脚本中
