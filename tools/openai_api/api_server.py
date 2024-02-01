@@ -18,31 +18,34 @@ that many tokens after accounting for the history and prompt tokens.
 - Pydantic Models: Defines structured models for requests and responses, enhancing API documentation and type safety.
 - Main Execution: Initializes the model and tokenizer, and starts the FastAPI app on the designated host and port.
 
-Note:
-    This script doesn't include the setup for special tokens or multi-GPU support by default.
-    Users need to configure their special tokens and can enable multi-GPU support as per the provided instructions.
-    Embedding Models only support in One GPU.
-
 """
-
+import argparse
+import asyncio
+import codecs
 import os
-import time
+import json
+import random
+
+import numpy as np
+import shortuuid as shortuuid
 import tiktoken
+import time
 import torch
 import uvicorn
-
-from fastapi import FastAPI, HTTPException, Response
-from fastapi.middleware.cors import CORSMiddleware
-
 from contextlib import asynccontextmanager
-from typing import List, Literal, Optional, Union
+from fastapi import FastAPI, HTTPException, Response
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from transformers import LlamaTokenizer, AutoModelForCausalLM
-from utils import process_response, generate_chatglm3, generate_stream_chatglm3
 from sentence_transformers import SentenceTransformer
-
 from sse_starlette.sse import EventSourceResponse
+from transformers import LlamaTokenizer, AutoModelForCausalLM
+from typing import List, Literal, Optional, Union, Dict, Any, Generator, Iterator, Iterable
+
+from constants import ErrorCode
 from log import get_logger
+
+logger = get_logger("debug")
 
 # Set up limit request time
 EventSourceResponse.DEFAULT_PING_INTERVAL = 1000
@@ -56,23 +59,11 @@ TOKENIZER_PATH = os.environ.get("TOKENIZER_PATH", MODEL_PATH)
 EMBEDDING_PATH = os.environ.get('EMBEDDING_PATH', 'BAAI/bge-large-zh-v1.5')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def _gc(forced: bool = False):
-    # global args
-    # if args.disable_gc and not forced:
-    #     return
-
-    import gc
-
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        torch.cuda.ipc_collect()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # collects GPU memory
     yield
-    _gc(forced=True)
+    _gc()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -145,14 +136,19 @@ class ChatCompletionRequest(BaseModel):
     top_k: Optional[int] = None
     max_tokens: Optional[int] = 1024
     stream: Optional[bool] = False
-    stop: Union[Optional[str], List[str], None] = "<eod>"
+    stop: Union[Optional[str], List[str], None] = ["<eod>"]
     echo: Optional[bool] = False
     n: Optional[int] = 1
     seed: Optional[int]
-    tools: Optional[Union[dict, List[dict]]] = None
     repetition_penalty: Optional[float] = 1.2
-    frequency_penalty: Optional[float]
-    presence_penalty: Optional[float]
+
+    # Not support yet.
+    tools: Optional[Union[dict, List[dict]]] = None
+    tool_choice: Optional[Union[str, dict]] = None
+    logit_bias: Optional[Dict[str, int]] = None
+    logprobs: Optional[bool] = False
+    frequency_penalty: Optional[float] = 0.0
+    presence_penalty: Optional[float] = 0.0
     user: Optional[str] = None
 
 
@@ -175,6 +171,18 @@ class ChatCompletionResponse(BaseModel):
     choices: List[Union[ChatCompletionResponseChoice, ChatCompletionResponseStreamChoice]]
     created: Optional[int] = Field(default_factory=lambda: int(time.time()))
     usage: Optional[UsageInfo] = None
+
+
+class ErrorResponse(BaseModel):
+    object: str = "error"
+    message: str
+    code: int
+
+
+def create_error_response(code: int, message: str) -> JSONResponse:
+    return JSONResponse(
+        ErrorResponse(message=message, code=code).model_dump(), status_code=400
+    )
 
 
 @app.get("/health")
@@ -218,12 +226,12 @@ async def get_embeddings(request: EmbeddingRequest):
 
 
 # A global registry for all conversation templates
-model_list: Dict[str, ModelCard] = {}
+model_map: Dict[str, ModelCard] = {}
 
 
-def register_model_list(model_card: ModelCard):
+def register_model_info(model_card: ModelCard):
     """Register a new model card in model list, e.g.:
-    register_model_list(
+    register_model_info(
         ModelCard(
             id="yuan2-2b-janus",
         )
@@ -231,362 +239,606 @@ def register_model_list(model_card: ModelCard):
     """
     id = model_card.id.lower()
     assert (
-        id in model_list
-    ), f"{id} has been registered, register info: {model_list[id]}."
+            id not in model_map.keys()
+    ), f"{id} has been registered, register info: {model_map[id]}."
 
-    model_list[id] = model_card
+    model_map[id] = model_card
 
 
 @app.get("/v1/models", response_model=ModelList)
 async def list_models():
     return ModelList(
-        data=model_list
+        data=model_map.values()
     )
 
 
 @app.post("/v1/chat/completions", response_model=ChatCompletionResponse)
 async def create_chat_completion(request: ChatCompletionRequest):
     global model, tokenizer
+    print(request)
 
     if len(request.messages) < 1 or request.messages[-1].role == "assistant":
         raise HTTPException(status_code=400, detail="Invalid request")
 
+    # request = await handle_request(request)
+
+    # if request.seed is not None:
+    #     set_seed(request.seed)
+
     exclude = {
-        "n",
-        "best_of",
-        "user",
+        "model",
         "messages",
+        "seed",
+        "stream",
+
+        # todo: not support yet.
+        "tools",
+        "tool_choice",
+        "logit_bias",
+        "logprobs",
+        "frequency_penalty",
+        "presence_penalty",
+        "user",
     }
+
     kwargs = request.model_dump(exclude=exclude)
-
     prompts = tokenizer.apply_chat_template(request.messages, tokenize=False)
-    logger.debug(f"==== prompts ====\n{prompts}")
 
-    input_ids = tokenizer.apply_chat_template(request.messages, tokenize=True, add_generation_prompt=False, return_tensors="pt")
+    kwargs["prompt"] = prompts
+    kwargs["max_new_tokens"] = request.max_tokens
+    kwargs["do_sample"] = True
 
+    logger.debug(f"==== request params ====\n{kwargs}")
 
-    gen_params = dict(
-        messages=request.messages,
-        temperature=request.temperature,
-        top_p=request.top_p,
-        top_k=request.top_k,
-        max_tokens=request.max_tokens or 1024,
-        echo=False,
-        stream=request.stream,
-        stop=request.stop,
-        repetition_penalty=request.repetition_penalty,
-        functions=request.functions,
-        tools=request.tools,
-    )
-    logger.debug(f"==== request ====\n{gen_params}")
+    # if request.stream:
+    #     generator = chat_completion_stream_generator(request.model, kwargs, request.n)
+    #     return StreamingResponse(generator, media_type="text/event-stream")
 
-    if request.stream:
-        if request.functions:
-            raise HTTPException(
-                status_code=400,
-                detail=
-                'Invalid request: Function calling is not yet implemented for stream mode.',
-            )
-
-        # Use the stream mode to read the first few characters, if it is not a function call, direct stram output
-        predict_stream_generator = predict_stream(request.model, gen_params)
-        output = next(predict_stream_generator)
-        if not contains_custom_function(output):
-            return EventSourceResponse(predict_stream_generator, media_type="text/event-stream")
-
-        # Obtain the result directly at one time and determine whether tools needs to be called.
-        logger.debug(f"First result output：\n{output}")
-
-        function_call = None
-        if output and request.tools:
-            try:
-                function_call = process_response(output, use_tool=True)
-            except:
-                logger.warning("Failed to parse tool call")
-
-        # CallFunction
-        if isinstance(function_call, dict):
-            function_call = FunctionCallResponse(**function_call)
-
-            """
-            In this demo, we did not register any tools.
-            You can use the tools that have been implemented in our `tools_using_demo` and implement your own streaming tool implementation here.
-            Similar to the following method:
-                function_args = json.loads(function_call.arguments)
-                tool_response = dispatch_tool(tool_name: str, tool_params: dict)
-            """
-            tool_response = ""
-
-            if not gen_params.get("messages"):
-                gen_params["messages"] = []
-
-            gen_params["messages"].append(ChatMessage(
-                role="assistant",
-                content=output,
-            ))
-            gen_params["messages"].append(ChatMessage(
-                role="function",
-                name=function_call.name,
-                content=tool_response,
-            ))
-
-            # Streaming output of results after function calls
-            generate = predict(request.model, gen_params)
-            return EventSourceResponse(generate, media_type="text/event-stream")
-
-        else:
-            # Handled to avoid exceptions in the above parsing function process.
-            generate = parse_output_text(request.model, output)
-            return EventSourceResponse(generate, media_type="text/event-stream")
-
-    # Here is the handling of stream = False
-    response = generate_chatglm3(model, tokenizer, gen_params)
-
-    # Remove the first newline character
-    if response["text"].startswith("\n"):
-        response["text"] = response["text"][1:]
-    response["text"] = response["text"].strip()
+    choices = []
+    chat_completions = []
+    for _ in range(request.n):
+        content = asyncio.create_task(generate_completion(kwargs))
+        chat_completions.append(content)
+    try:
+        all_tasks = await asyncio.gather(*chat_completions)
+    except Exception as e:
+        return create_error_response(ErrorCode.INTERNAL_ERROR, str(e))
 
     usage = UsageInfo()
-    function_call, finish_reason = None, "stop"
-    if request.tools:
-        try:
-            function_call = process_response(response["text"], use_tool=True)
-        except:
-            logger.warning("Failed to parse tool call, maybe the response is not a tool call or have been answered.")
-
-    if isinstance(function_call, dict):
-        finish_reason = "function_call"
-        function_call = FunctionCallResponse(**function_call)
-
-    message = ChatMessage(
-        role="assistant",
-        content=response["text"],
-        function_call=function_call if isinstance(function_call, FunctionCallResponse) else None,
-    )
-
-    logger.debug(f"==== message ====\n{message}")
-
-    choice_data = ChatCompletionResponseChoice(
-        index=0,
-        message=message,
-        finish_reason=finish_reason,
-    )
-    task_usage = UsageInfo.model_validate(response["usage"])
-    for usage_key, usage_value in task_usage.model_dump().items():
-        setattr(usage, usage_key, getattr(usage, usage_key) + usage_value)
-
-    return ChatCompletionResponse(
-        model=request.model,
-        id="",  # for open_source model, id is empty
-        choices=[choice_data],
-        object="chat.completion",
-        usage=usage
-    )
-
-
-
-async def chat_completion_stream_generator(
-    model_name: str, gen_params: Dict[str, Any], n: int, worker_addr: str
-) -> Generator[str, Any, None]:
-    """
-    Event stream format:
-    https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#event_stream_format
-    """
-    id = f"chatcmpl-{shortuuid.random()}"
-    finish_stream_events = []
-    for i in range(n):
-        # First chunk with role
-        choice_data = ChatCompletionResponseStreamChoice(
-            index=i,
-            delta=DeltaMessage(role="assistant"),
-            finish_reason=None,
-        )
-        chunk = ChatCompletionStreamResponse(
-            id=id, choices=[choice_data], model=model_name
-        )
-        yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
-
-        previous_text = ""
-        async for content in generate_completion_stream(gen_params, worker_addr):
-            if content["error_code"] != 0:
-                yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
-                yield "data: [DONE]\n\n"
-                return
-            decoded_unicode = content["text"].replace("\ufffd", "")
-            delta_text = decoded_unicode[len(previous_text) :]
-            previous_text = (
-                decoded_unicode
-                if len(decoded_unicode) > len(previous_text)
-                else previous_text
-            )
-
-            if len(delta_text) == 0:
-                delta_text = None
-            choice_data = ChatCompletionResponseStreamChoice(
+    for i, content in enumerate(all_tasks):
+        choices.append(
+            ChatCompletionResponseChoice(
                 index=i,
-                delta=DeltaMessage(content=delta_text),
-                finish_reason=content.get("finish_reason", None),
+                message=ChatMessage(role="assistant", content=content["text"]),
+                finish_reason=content.get("finish_reason", "stop"),
             )
-            chunk = ChatCompletionStreamResponse(
-                id=id, choices=[choice_data], model=model_name
-            )
-            if delta_text is None:
-                if content.get("finish_reason", None) is not None:
-                    finish_stream_events.append(chunk)
-                continue
-            yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
-    # There is not "content" field in the last delta message, so exclude_none to exclude field "content".
-    for finish_chunk in finish_stream_events:
-        yield f"data: {finish_chunk.json(exclude_none=True, ensure_ascii=False)}\n\n"
-    yield "data: [DONE]\n\n"
-
-
-
-async def predict(model_id: str, params: dict):
-    global model, tokenizer
-
-    choice_data = ChatCompletionResponseStreamChoice(
-        index=0,
-        delta=DeltaMessage(role="assistant"),
-        finish_reason=None
-    )
-    chunk = ChatCompletionResponse(model=model_id, id="", choices=[choice_data], object="chat.completion.chunk")
-    yield "{}".format(chunk.model_dump_json(exclude_unset=True))
-
-    previous_text = ""
-    for new_response in generate_stream_chatglm3(model, tokenizer, params):
-        decoded_unicode = new_response["text"]
-        delta_text = decoded_unicode[len(previous_text):]
-        previous_text = decoded_unicode
-
-        finish_reason = new_response["finish_reason"]
-        if len(delta_text) == 0 and finish_reason != "function_call":
-            continue
-
-        function_call = None
-        if finish_reason == "function_call":
-            try:
-                function_call = process_response(decoded_unicode, use_tool=True)
-            except:
-                logger.warning(
-                    "Failed to parse tool call, maybe the response is not a tool call or have been answered.")
-
-        if isinstance(function_call, dict):
-            function_call = FunctionCallResponse(**function_call)
-
-        delta = DeltaMessage(
-            content=delta_text,
-            role="assistant",
-            function_call=function_call if isinstance(function_call, FunctionCallResponse) else None,
         )
+        if "usage" in content:
+            task_usage = UsageInfo.parse_obj(content["usage"])
+            for usage_key, usage_value in task_usage.dict().items():
+                setattr(usage, usage_key, getattr(usage, usage_key) + usage_value)
 
-        choice_data = ChatCompletionResponseStreamChoice(
-            index=0,
-            delta=delta,
-            finish_reason=finish_reason
-        )
-        chunk = ChatCompletionResponse(
-            model=model_id,
-            id="",
-            choices=[choice_data],
-            object="chat.completion.chunk"
-        )
-        yield "{}".format(chunk.model_dump_json(exclude_unset=True))
+    return ChatCompletionResponse(model=request.model, choices=choices, usage=usage)
 
-    choice_data = ChatCompletionResponseStreamChoice(
-        index=0,
-        delta=DeltaMessage(),
-        finish_reason="stop"
-    )
-    chunk = ChatCompletionResponse(
-        model=model_id,
-        id="",
-        choices=[choice_data],
-        object="chat.completion.chunk"
-    )
-    yield "{}".format(chunk.model_dump_json(exclude_unset=True))
-    yield '[DONE]'
+#
+# def _create_chat_completion_generator(**kwargs) -> Union[Iterator[ChatCompletionResponse], ChatCompletionResponse]:
+#     return (
+#         _create_chat_completion_stream(kwargs)
+#         if kwargs.get("stream", False)
+#         else _create_chat_completion(kwargs)
+#     )
 
+#
+# def _create_chat_completion_stream(params: Dict[str, Any]) -> Iterator[ChatCompletionResponse]:
+#     """
+#     Creates a chat completion stream.
+#
+#     Args:
+#         params (Dict[str, Any]): The parameters for generating the chat completion.
+#
+#     Yields:
+#         Dict[str, Any]: The output of the chat completion stream.
+#     """
+#     _id, _created, _model = None, None, None
+#     has_function_call = False
+#     for i, output in enumerate(self._generate(params)):
+#         if output["error_code"] != 0:
+#             yield output
+#             return
+#
+#         _id, _created, _model = output["id"], output["created"], output["model"]
+#         if i == 0:
+#             choice = ChunkChoice(
+#                 index=0,
+#                 delta=ChoiceDelta(role="assistant", content=""),
+#                 finish_reason=None,
+#                 logprobs=None,
+#             )
+#             yield ChatCompletionChunk(
+#                 id=f"chat{_id}",
+#                 choices=[choice],
+#                 created=_created,
+#                 model=_model,
+#                 object="chat.completion.chunk",
+#             )
+#
+#         finish_reason = output["finish_reason"]
+#         if len(output["delta"]) == 0 and finish_reason != "function_call":
+#             continue
+#
+#         function_call = None
+#         if finish_reason == "function_call":
+#             try:
+#                 _, function_call = self.prompt_adapter.parse_assistant_response(
+#                     output["text"], params.get("functions"), params.get("tools"),
+#                 )
+#             except Exception as e:
+#                 traceback.print_exc()
+#                 logger.warning("Failed to parse tool call")
+#
+#         if isinstance(function_call, dict) and "arguments" in function_call:
+#             has_function_call = True
+#             function_call = ChoiceDeltaFunctionCall(**function_call)
+#             delta = ChoiceDelta(
+#                 content=output["delta"],
+#                 function_call=function_call
+#             )
+#         elif isinstance(function_call, dict) and "function" in function_call:
+#             has_function_call = True
+#             finish_reason = "tool_calls"
+#             function_call["index"] = 0
+#             tool_calls = [model_parse(ChoiceDeltaToolCall, function_call)]
+#             delta = ChoiceDelta(
+#                 content=output["delta"],
+#                 tool_calls=tool_calls,
+#             )
+#         else:
+#             delta = ChoiceDelta(content=output["delta"])
+#
+#         choice = ChunkChoice(
+#             index=0,
+#             delta=delta,
+#             finish_reason=finish_reason,
+#             logprobs=None,
+#         )
+#         yield ChatCompletionChunk(
+#             id=f"chat{_id}",
+#             choices=[choice],
+#             created=_created,
+#             model=_model,
+#             object="chat.completion.chunk",
+#         )
+#
+#     if not has_function_call:
+#         choice = ChunkChoice(
+#             index=0,
+#             delta=ChoiceDelta(),
+#             finish_reason="stop",
+#             logprobs=None,
+#         )
+#         yield ChatCompletionChunk(
+#             id=f"chat{_id}",
+#             choices=[choice],
+#             created=_created,
+#             model=_model,
+#             object="chat.completion.chunk",
+#         )
 
-def predict_stream(model_id, gen_params):
+def set_seed(seed: int):
     """
-    The function call is compatible with stream mode output.
+    Helper function for reproducible behavior to set the seed in `random`, `numpy`, `torch` and/or `tf` (if installed).
 
-    The first seven characters are determined.
-    If not a function call, the stream output is directly generated.
-    Otherwise, the complete character content of the function call is returned.
-
-    :param model_id:
-    :param gen_params:
-    :return:
+    Args:
+        seed (`int`): The seed to set.
     """
-    output = ""
-    is_function_call = False
-    has_send_first_chunk = False
-    for new_response in generate_stream_chatglm3(model, tokenizer, gen_params):
-        decoded_unicode = new_response["text"]
-        delta_text = decoded_unicode[len(output):]
-        output = decoded_unicode
+    random.seed(seed)
+    np.random.seed(seed)
+    if torch.is_torch_available():
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
 
-        # When it is not a function call and the character length is> 7,
-        # try to judge whether it is a function call according to the special function prefix
-        if not is_function_call and len(output) > 7:
 
-            # Determine whether a function is called
-            is_function_call = contains_custom_function(output)
-            if is_function_call:
-                continue
+async def handle_request(request: ChatCompletionRequest) -> Union[ChatCompletionRequest, JSONResponse]:
+    error = check_requests(request)
+    if error is not None:
+        return error
 
-            # Non-function call, direct stream output
-            finish_reason = new_response["finish_reason"]
+    request.stop = request.stop or []
+    if isinstance(request.stop, str):
+        request.stop = [request.stop]
 
-            # Send an empty string first to avoid truncation by subsequent next() operations.
-            if not has_send_first_chunk:
-                message = DeltaMessage(
-                    content="",
-                    role="assistant",
-                    function_call=None,
-                )
-                choice_data = ChatCompletionResponseStreamChoice(
-                    index=0,
-                    delta=message,
-                    finish_reason=finish_reason
-                )
-                chunk = ChatCompletionResponse(
-                    model=model_id,
-                    id="",
-                    choices=[choice_data],
-                    created=int(time.time()),
-                    object="chat.completion.chunk"
-                )
-                yield "{}".format(chunk.model_dump_json(exclude_unset=True))
+    request.top_p = max(request.top_p, 1e-5)
+    if request.temperature <= 1e-5:
+        request.top_p = 1.0
 
-            send_msg = delta_text if has_send_first_chunk else output
-            has_send_first_chunk = True
-            message = DeltaMessage(
-                content=send_msg,
-                role="assistant",
-                function_call=None,
-            )
-            choice_data = ChatCompletionResponseStreamChoice(
-                index=0,
-                delta=message,
-                finish_reason=finish_reason
-            )
-            chunk = ChatCompletionResponse(
-                model=model_id,
-                id="",
-                choices=[choice_data],
-                created=int(time.time()),
-                object="chat.completion.chunk"
-            )
-            yield "{}".format(chunk.model_dump_json(exclude_unset=True))
+    return request
 
-    if is_function_call:
-        yield output
+
+def check_requests(request: ChatCompletionRequest) -> Optional[JSONResponse]:
+    # Check all params
+    if request.model not in model_map.keys():
+        return create_error_response(
+            ErrorCode.INVALID_MODEL,
+            f"Model '{request.model}' not found. Please use one of '{model_map.keys()}'.",
+        )
+    if request.max_tokens is not None and request.max_tokens <= 0:
+        return create_error_response(
+            ErrorCode.PARAM_OUT_OF_RANGE,
+            f"{request.max_tokens} is less than the minimum of 1 - 'max_tokens'",
+        )
+    if request.n is not None and request.n <= 0:
+        return create_error_response(
+            ErrorCode.PARAM_OUT_OF_RANGE,
+            f"{request.n} is less than the minimum of 1 - 'n'",
+        )
+    if request.temperature is not None and request.temperature < 0:
+        return create_error_response(
+            ErrorCode.PARAM_OUT_OF_RANGE,
+            f"{request.temperature} is less than the minimum of 0 - 'temperature'",
+        )
+    if request.temperature is not None and request.temperature > 2:
+        return create_error_response(
+            ErrorCode.PARAM_OUT_OF_RANGE,
+            f"{request.temperature} is greater than the maximum of 2 - 'temperature'",
+        )
+    if request.top_p is not None and request.top_p < 0:
+        return create_error_response(
+            ErrorCode.PARAM_OUT_OF_RANGE,
+            f"{request.top_p} is less than the minimum of 0 - 'top_p'",
+        )
+    if request.top_p is not None and request.top_p > 1:
+        return create_error_response(
+            ErrorCode.PARAM_OUT_OF_RANGE,
+            f"{request.top_p} is greater than the maximum of 1 - 'temperature'",
+        )
+    if request.repetition_penalty is not None and request.repetition_penalty < 0:
+        return create_error_response(
+            ErrorCode.PARAM_OUT_OF_RANGE,
+            f"{request.top_p} is less than the minimum of 0 - 'repetition_penalty'",
+        )
+    if request.stop is None or isinstance(request.stop, (str, list)):
+        return None
     else:
-        yield '[DONE]'
+        return create_error_response(
+            ErrorCode.PARAM_OUT_OF_RANGE,
+            f"{request.stop} is not valid under any of the given schemas - 'stop'",
+        )
+
+
+# async def chat_completion_stream_generator(
+#         model_name: str, gen_params: Dict[str, Any], n: int
+# ) -> Generator[str, Any, None]:
+#     """
+#     Event stream format:
+#     https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#event_stream_format
+#     """
+#     id = f"chatcmpl-{shortuuid.random()}"
+#     finish_stream_events = []
+#     for i in range(n):
+#         # First chunk with role
+#         choice_data = ChatCompletionResponseStreamChoice(
+#             index=i,
+#             delta=DeltaMessage(role="assistant"),
+#             finish_reason=None,
+#         )
+#         chunk = ChatCompletionResponse(
+#             id=id, choices=[choice_data], model=model_name
+#         )
+#         yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+#
+#         previous_text = ""
+#         async for content in generate(model, tokenizer, gen_params):
+#             if content["error_code"] != 0:
+#                 yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
+#                 yield "data: [DONE]\n\n"
+#                 return
+#             decoded_unicode = content["text"].replace("\ufffd", "")
+#             delta_text = decoded_unicode[len(previous_text):]
+#             previous_text = (
+#                 decoded_unicode
+#                 if len(decoded_unicode) > len(previous_text)
+#                 else previous_text
+#             )
+#
+#             if len(delta_text) == 0:
+#                 delta_text = None
+#             choice_data = ChatCompletionResponseStreamChoice(
+#                 index=i,
+#                 delta=DeltaMessage(content=delta_text),
+#                 finish_reason=content.get("finish_reason", None),
+#             )
+#             chunk = ChatCompletionResponse(
+#                 id=id, choices=[choice_data], model=model_name, object="chat.completion.chunk",
+#             )
+#             if delta_text is None:
+#                 if content.get("finish_reason", None) is not None:
+#                     finish_stream_events.append(chunk)
+#                 continue
+#             yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+#     # There is not "content" field in the last delta message, so exclude_none to exclude field "content".
+#     for finish_chunk in finish_stream_events:
+#         yield f"data: {finish_chunk.json(exclude_none=True, ensure_ascii=False)}\n\n"
+#     yield "data: [DONE]\n\n"
+
+#
+# async def api_generate_stream(model, tokenizer, kwargs):
+#     generator = generate_stream(model, tokenizer, kwargs)
+#     return StreamingResponse(generator)
+#
+#
+# async def api_generate(model, tokenizer, kwargs):
+#     output = await asyncio.to_thread(generate, (model, tokenizer, kwargs))
+#     return JSONResponse(output)
+
+#
+# def generate(model, tokenizer, kwargs):
+#     for x in generate_stream_gate(model, tokenizer, kwargs):
+#         pass
+#     return json.loads(x[:-1].decode())
+#
+#
+# def generate_stream(model, tokenizer, kwargs):
+#     global device
+#     try:
+#         for output in _generate_stream(
+#             model,
+#             tokenizer,
+#             kwargs,
+#             device,
+#             context_len,
+#             stream_interval,
+#         ):
+#             ret = {
+#                 "text": output["text"],
+#                 "error_code": 0,
+#             }
+#             if "usage" in output:
+#                 ret["usage"] = output["usage"]
+#             if "finish_reason" in output:
+#                 ret["finish_reason"] = output["finish_reason"]
+#             if "logprobs" in output:
+#                 ret["logprobs"] = output["logprobs"]
+#             yield json.dumps(ret).encode() + b"\0"
+#     except torch.cuda.OutOfMemoryError as e:
+#         ret = {
+#             "text": f"cuda Out of memory error: \n\n({e})",
+#             "error_code": ErrorCode.CUDA_OUT_OF_MEMORY,
+#         }
+#         yield json.dumps(ret).encode() + b"\0"
+#     except (ValueError, RuntimeError) as e:
+#         ret = {
+#             "text": f"internal server error: \n\n({e})",
+#             "error_code": ErrorCode.INTERNAL_ERROR,
+#         }
+#         yield json.dumps(ret).encode() + b"\0"
+#
+
+@torch.inference_mode()
+def _generate_stream(
+    model,
+    tokenizer,
+    params: Dict,
+    device: str,
+    context_len: int,
+    stream_interval: int = 2,
+    judge_sent_end: bool = False,
+):
+    if hasattr(model, "device"):
+        device = model.device
+
+    # Read parameters
+    prompt = params["prompt"]
+    len_prompt = len(prompt)
+    temperature = float(params.get("temperature", 1.0))
+    repetition_penalty = float(params.get("repetition_penalty", 1.0))
+    top_p = float(params.get("top_p", 1.0))
+    top_k = int(params.get("top_k", -1))  # -1 means disable
+    max_new_tokens = int(params.get("max_new_tokens", 1024))
+    logprobs = params.get("logprobs", None)
+    echo = bool(params.get("echo", True))
+    stop_str = params.get("stop", None) or []
+    stop_token_ids = params.get("stop_token_ids", None) or []
+    stop_token_ids.update([tokenizer(s) for s in stop_str])
+
+    if tokenizer.eos_token_id not in stop_token_ids:
+        stop_token_ids.append(tokenizer.eos_token_id)
+
+    input_ids = tokenizer(prompt).input_ids
+    input_ids = input_ids.to(model.device)
+
+    max_src_len = context_len - max_new_tokens - 1
+
+    input_ids = input_ids[-max_src_len:]
+    output_ids = list(input_ids)
+    input_echo_len = len(input_ids)
+
+    start_ids = torch.as_tensor([input_ids], device=device)
+
+    past_key_values = out = None
+    token_logprobs = [None]  # The first token has no logprobs.
+    sent_interrupt = False
+    finish_reason = None
+    stopped = False
+    for i in range(max_new_tokens):
+        if i == 0:  # prefill
+            out = model(input_ids=start_ids, use_cache=True)
+            logits = out.logits
+            past_key_values = out.past_key_values
+
+            if logprobs is not None:
+                # Prefull logprobs for the prompt.
+                shift_input_ids = start_ids[..., 1:].contiguous()
+                shift_logits = logits[..., :-1, :].contiguous()
+                shift_logits = torch.log_softmax(shift_logits, dim=-1).tolist()
+                for label_id, logit in zip(
+                    shift_input_ids[0].tolist(), shift_logits[0]
+                ):
+                    token_logprobs.append(logit[label_id])
+        else:  # decoding
+            out = model(
+                input_ids=torch.as_tensor(
+                    [[token] if not sent_interrupt else output_ids],
+                    device=device,
+                ),
+                use_cache=True,
+                past_key_values=past_key_values if not sent_interrupt else None,
+            )
+            sent_interrupt = False
+            logits = out.logits
+            past_key_values = out.past_key_values
+
+        last_token_logits = logits[0, -1, :]
+
+        if temperature < 1e-5 or top_p < 1e-8:  # greedy
+            _, indices = torch.topk(last_token_logits, 2)
+            tokens = [int(index) for index in indices.tolist()]
+        else:
+            probs = torch.softmax(last_token_logits, dim=-1)
+            indices = torch.multinomial(probs, num_samples=2)
+            tokens = [int(token) for token in indices.tolist()]
+        token = tokens[0]
+        output_ids.append(token)
+        if logprobs is not None:
+            # Cannot use last_token_logits because logprobs is based on raw logits.
+            token_logprobs.append(
+                torch.log_softmax(logits[0, -1, :], dim=-1)[token].tolist()
+            )
+
+        if token in stop_token_ids:
+            stopped = True
+        else:
+            stopped = False
+
+        # Yield the output tokens
+        if i % stream_interval == 0 or i == max_new_tokens - 1 or stopped:
+            if echo:
+                tmp_output_ids = output_ids
+                rfind_start = len_prompt
+            else:
+                tmp_output_ids = output_ids[input_echo_len:]
+                rfind_start = 0
+
+            output = tokenizer.decode(
+                tmp_output_ids,
+                skip_special_tokens=True,
+                spaces_between_special_tokens=False,
+                clean_up_tokenization_spaces=True,
+            )
+            ret_logprobs = None
+            if logprobs is not None:
+                ret_logprobs = {
+                    "text_offset": [],
+                    "tokens": [
+                        tokenizer.decode(token)
+                        for token in (
+                            output_ids if echo else output_ids[input_echo_len:]
+                        )
+                    ],
+                    "token_logprobs": token_logprobs
+                    if echo
+                    else token_logprobs[input_echo_len:],
+                    "top_logprobs": [{}]
+                    * len(token_logprobs if echo else token_logprobs[input_echo_len:]),
+                }
+                # Compute text_offset
+                curr_pos = 0
+                for text in ret_logprobs["tokens"]:
+                    ret_logprobs["text_offset"].append(curr_pos)
+                    curr_pos += len(text)
+
+            if judge_sent_end and stopped and not is_sentence_complete(output):
+                if len(tokens) > 1:
+                    token = tokens[1]
+                    output_ids[-1] = token
+                else:
+                    output_ids.pop()
+                stopped = False
+                sent_interrupt = True
+
+            partially_stopped = False
+            if stop_str:
+                if isinstance(stop_str, str):
+                    pos = output.rfind(stop_str, rfind_start)
+                    if pos != -1:
+                        output = output[:pos]
+                        stopped = True
+                    else:
+                        partially_stopped = is_partial_stop(output, stop_str)
+                elif isinstance(stop_str, Iterable):
+                    for each_stop in stop_str:
+                        pos = output.rfind(each_stop, rfind_start)
+                        if pos != -1:
+                            output = output[:pos]
+                            stopped = True
+                            break
+                        else:
+                            partially_stopped = is_partial_stop(output, each_stop)
+                            if partially_stopped:
+                                break
+                else:
+                    raise ValueError("Invalid stop field type.")
+
+            # Prevent yielding partial stop sequence
+            if not partially_stopped:
+                yield {
+                    "text": output,
+                    "logprobs": ret_logprobs,
+                    "usage": {
+                        "prompt_tokens": input_echo_len,
+                        "completion_tokens": i,
+                        "total_tokens": input_echo_len + i,
+                    },
+                    "finish_reason": None,
+                }
+
+        if stopped:
+            break
+
+    # Finish stream event, which contains finish reason
+    else:
+        finish_reason = "length"
+
+    if stopped:
+        finish_reason = "stop"
+
+    yield {
+        "text": output,
+        "logprobs": ret_logprobs,
+        "usage": {
+            "prompt_tokens": input_echo_len,
+            "completion_tokens": i,
+            "total_tokens": input_echo_len + i,
+        },
+        "finish_reason": finish_reason,
+    }
+
+    # Clean
+    del past_key_values, out
+    _gc()
+
+
+def _gc():
+    import gc
+
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+
+def is_partial_stop(output: str, stop_str: str):
+    """Check whether the output contains a partial stop str."""
+    for i in range(0, min(len(output), len(stop_str))):
+        if stop_str.startswith(output[-i:]):
+            return True
+    return False
+
+
+def is_sentence_complete(output: str):
+    """Check whether the output is a complete sentence."""
+    end_symbols = (".", "?", "!", "...", "。", "？", "！", "…", '"', "'", "”")
+    return output.endswith(end_symbols)
+
 
 
 async def parse_output_text(model_id: str, value: str):
@@ -613,24 +865,6 @@ async def parse_output_text(model_id: str, value: str):
     chunk = ChatCompletionResponse(model=model_id, id="", choices=[choice_data], object="chat.completion.chunk")
     yield "{}".format(chunk.model_dump_json(exclude_unset=True))
     yield '[DONE]'
-
-
-def contains_custom_function(value: str) -> bool:
-    """
-    Determine whether 'function_call' according to a special function prefix.
-
-    For example, the functions defined in "tools_using_demo/tool_register.py" are all "get_xxx" and start with "get_"
-
-    [Note] This is not a rigorous judgment method, only for reference.
-
-    :param value:
-    :return:
-    """
-    return value and 'get_' in value
-
-
-def load_chat_template(tokenizer):
-    return tokenizer.chat_template
 
 
 def load_model_and_tokenizer(model_path: str, device_map):
@@ -670,25 +904,27 @@ def load_model_and_tokenizer(model_path: str, device_map):
 
     return model, tokenizer
 
+
 def postprocess(output_text, stop):
     # 后处理输出
     # 这里可以实现一些后处理的逻辑，比如去除重复，过滤敏感词，添加标点等
     # 这里只是一个简单的示例，你可以根据你的需要修改它
     output_text = output_text.replace('<unk>', '').replace('▃', '\n').replace('<n>', '\n').replace('▂', ' ')
-    output_text = output_text.lstrip("<sep>").rstrip(stop)
+    for s in stop:
+        output_text = output_text.lstrip("<sep>").rstrip(s)
     return output_text
 
 
-def _generate(model, tokenizer, kwargs):
+async def generate_completion(kwargs):
+    global device
     model.eval()
     with torch.no_grad():
-        input_text = generate_prompts(tokenizer, kwargs["messages"])
-        input_ids = tokenizer(input_text, return_tensors="pt").input_ids.to(self.device)
+        input_ids = tokenizer(kwargs["prompt"], return_tensors="pt").input_ids.to(device)
 
         # 生成输出
         output_ids = model.generate(
             input_ids=input_ids,
-            max_length=kwargs["max_length"],
+            max_length=kwargs["max_tokens"],
             temperature=kwargs["temperature"],
             top_k=kwargs["top_k"],
             top_p=kwargs["top_p"],
@@ -696,13 +932,13 @@ def _generate(model, tokenizer, kwargs):
             do_sample=kwargs["do_sample"],
         )
         output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)  # 对输出进行解码
-        output_text = self.postprocess(output_text, kwargs["stop"])  # 后处理输出
+        output_text = postprocess(output_text, kwargs["stop"])  # 后处理输出
     return output_text  # 返回输出
 
 
 def stream_inference(model, tokenizer, kwargs):
-    input_text = generate_prompts(tokenizer, kwargs["messages"])
-    input_ids = tokenizer(input_text, return_tensors="pt").input_ids.to(self.device)
+    input_text = kwargs["messages"]
+    input_ids = tokenizer(input_text, return_tensors="pt").input_ids.to(device)
 
     # 初始化生成的文本
     generated_text = ""
@@ -737,32 +973,23 @@ def generate_prompts(tokenizer, messages):
     return result
 
 
-def _validate_prompt_and_tokenize(
-        request: Union[ChatCompletionRequest, CompletionRequest],
-        prompt: Optional[str] = None,
-        prompt_ids: Optional[List[int]] = None) -> List[int]:
-    if not (prompt or prompt_ids):
-        raise ValueError("Either prompt or prompt_ids should be provided.")
-    if (prompt and prompt_ids):
-        raise ValueError(
-            "Only one of prompt or prompt_ids should be provided.")
+def load_chat_template(tokenizer, args):
+    if args.chat_template is not None:
+        try:
+            with open(args.chat_template, "r") as f:
+                chat_template = f.read()
+        except OSError:
+            # If opening a file fails, set chat template to be args to
+            # ensure we decode so our escape are interpreted correctly
+            chat_template = codecs.decode(args.chat_template, "unicode_escape")
 
-    input_ids = prompt_ids if prompt_ids is not None else self.tokenizer(
-        prompt).input_ids
-    token_num = len(input_ids)
-
-    if request.max_tokens is None:
-        request.max_tokens = self.max_model_len - token_num
-
-    if token_num + request.max_tokens > self.max_model_len:
-        raise ValueError(
-            f"This model's maximum context length is {self.max_model_len} tokens. "
-            f"However, you requested {request.max_tokens + token_num} tokens "
-            f"({token_num} in the messages, "
-            f"{request.max_tokens} in the completion). "
-            f"Please reduce the length of the messages or completion.", )
+        tokenizer.chat_template = chat_template
+        logger.info(f"Chat template loaded from input: {args.chat_template}.")
+    elif tokenizer.chat_template is not None:
+        logger.info(f"Chat template loaded from tokenizer.")
     else:
-        return input_ids
+        # throw a warning if no chat template is provided
+        logger.warning("WARNING: No chat template provided. chat completion won't work.")
 
 
 def _get_args():
@@ -782,6 +1009,12 @@ def _get_args():
         help="full model name or local path."
     )
     parser.add_argument(
+        "--embedding-path",
+        type=str,
+        default="BAAI/bge-large-zh-v1.5",
+        help="full model name or local path."
+    )
+    parser.add_argument(
         "--cpu-only",
         type=bool,
         default=False,
@@ -790,13 +1023,13 @@ def _get_args():
     parser.add_argument(
         "--host",
         type=str,
-        default="127.0.0.1",
+        default="0.0.0.0",
         help="host name"
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=8001,
+        default=8051,
         help="port number"
     )
     parser.add_argument(
@@ -868,23 +1101,24 @@ def _get_args():
 
 
 if __name__ == "__main__":
-
     args = _get_args()
 
     # 注册model_list
-    register_model_list(ModelCard(
+    register_model_info(ModelCard(
         id=args.model_name,
     ))
 
     if args.cpu_only:
         device_map = 'cpu'
+        device = torch.device("cpu")
     else:
         device_map = 'auto'
+        device = torch.device("cuda")
 
     # Load LLM
-    model, tokenizer = load_model_and_tokenizer(args.model_name_or_path, device_map)
-
+    model, tokenizer = load_model_and_tokenizer(args.model_path, device_map)
+    load_chat_template(tokenizer, args)
 
     # load Embedding
-    embedding_model = SentenceTransformer(EMBEDDING_PATH, device="cuda")
+    embedding_model = SentenceTransformer(args.embedding_path, device="cuda")
     uvicorn.run(app, host=args.host, port=args.port, workers=1)

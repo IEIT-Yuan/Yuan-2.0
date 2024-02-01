@@ -13,6 +13,10 @@ fastapi>=0.109.0
 loguru~=0.7.2
 mdtex2html>=1.2.0
 latex2mathml>=3.77.0
+numpy
+asyncio
+random
+shortuuid
 
 # for openai demo
 openai>=1.7.2

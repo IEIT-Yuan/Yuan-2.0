@@ -4,7 +4,10 @@ This script is an example of using the OpenAI API to create various interactions
 
 from openai import OpenAI
 
-base_url = "http://127.0.0.1:8001/v1/"
+import os
+os.environ["no_proxy"] = "localhost,127.0.0.1,::1"
+
+base_url = "http://10.51.24.212:8051/v1/"
 client = OpenAI(
     api_key="EMPTY",
     base_url=base_url
@@ -58,12 +61,13 @@ def simple_chat(use_stream=True):
         }
     ]
     response = client.chat.completions.create(
-        model="yuan2",
+        model="Yuan2-2B-Janus".lower(),
         messages=messages,
         stream=use_stream,
         max_tokens=1024,
         temperature=1.0,
-        presence_penalty=1.1,
+        seed=1234,
+        # repeat_penalty=1.2,
         top_p=0.9)
     if response:
         if use_stream:
