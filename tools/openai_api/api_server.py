@@ -45,18 +45,18 @@ from typing import List, Literal, Optional, Union, Dict, Any, Generator, Iterato
 from constants import ErrorCode
 from log import get_logger
 
-logger = get_logger("debug")
+logger = get_logger("info")
 
 # Set up limit request time
 EventSourceResponse.DEFAULT_PING_INTERVAL = 1000
 
-# set LLM path
-MODEL_NAME = os.environ.get('MODEL_NAME', "yuan2")
-MODEL_PATH = os.environ.get('MODEL_PATH', 'IEITYuan/Yuan2-2B-Janus-hf')
-TOKENIZER_PATH = os.environ.get("TOKENIZER_PATH", MODEL_PATH)
-
-# set Embedding Model path
-EMBEDDING_PATH = os.environ.get('EMBEDDING_PATH', 'BAAI/bge-large-zh-v1.5')
+# # set LLM path
+# MODEL_NAME = os.environ.get('MODEL_NAME', "yuan2")
+# MODEL_PATH = os.environ.get('MODEL_PATH', 'IEITYuan/Yuan2-2B-Janus-hf')
+# TOKENIZER_PATH = os.environ.get("TOKENIZER_PATH", MODEL_PATH)
+#
+# # set Embedding Model path
+# EMBEDDING_PATH = os.environ.get('EMBEDDING_PATH', 'BAAI/bge-large-zh-v1.5')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -233,7 +233,7 @@ def register_model_info(model_card: ModelCard):
     """Register a new model card in model list, e.g.:
     register_model_info(
         ModelCard(
-            id="yuan2-2b-janus",
+            id="yuan2-2b-janus-hf",
         )
     )
     """
@@ -260,10 +260,10 @@ async def create_chat_completion(request: ChatCompletionRequest):
     if len(request.messages) < 1 or request.messages[-1].role == "assistant":
         raise HTTPException(status_code=400, detail="Invalid request")
 
-    # request = await handle_request(request)
+    request = await handle_request(request)
 
-    # if request.seed is not None:
-    #     set_seed(request.seed)
+    if request.seed is not None:
+        set_seed(request.seed)
 
     exclude = {
         "model",
@@ -288,11 +288,16 @@ async def create_chat_completion(request: ChatCompletionRequest):
     kwargs["max_new_tokens"] = request.max_tokens
     kwargs["do_sample"] = True
 
-    logger.debug(f"==== request params ====\n{kwargs}")
 
-    # if request.stream:
-    #     generator = chat_completion_stream_generator(request.model, kwargs, request.n)
-    #     return StreamingResponse(generator, media_type="text/event-stream")
+    logger.debug(f"==== request params ====\n{kwargs}\n")
+
+    if request.stream:
+        return create_error_response(
+            ErrorCode.VALIDATION_TYPE_ERROR,
+            f"Streaming is not yet supported.",
+        )
+        # generator = chat_completion_stream_generator(request.model, kwargs, request.n)
+        # return StreamingResponse(generator, media_type="text/event-stream")
 
     choices = []
     chat_completions = []
@@ -314,115 +319,27 @@ async def create_chat_completion(request: ChatCompletionRequest):
             )
         )
         if "usage" in content:
-            task_usage = UsageInfo.parse_obj(content["usage"])
-            for usage_key, usage_value in task_usage.dict().items():
+            task_usage = UsageInfo.model_validate(content["usage"])
+            for usage_key, usage_value in task_usage.model_dump().items():
                 setattr(usage, usage_key, getattr(usage, usage_key) + usage_value)
 
-    return ChatCompletionResponse(model=request.model, choices=choices, usage=usage)
+    return ChatCompletionResponse(
+        id=f"chatcmpl-{shortuuid.random()}",
+        object="chat.completion",
+        model=request.model,
+        choices=choices,
+        usage=usage,
+    )
 
-#
-# def _create_chat_completion_generator(**kwargs) -> Union[Iterator[ChatCompletionResponse], ChatCompletionResponse]:
-#     return (
-#         _create_chat_completion_stream(kwargs)
-#         if kwargs.get("stream", False)
-#         else _create_chat_completion(kwargs)
-#     )
 
-#
-# def _create_chat_completion_stream(params: Dict[str, Any]) -> Iterator[ChatCompletionResponse]:
-#     """
-#     Creates a chat completion stream.
-#
-#     Args:
-#         params (Dict[str, Any]): The parameters for generating the chat completion.
-#
-#     Yields:
-#         Dict[str, Any]: The output of the chat completion stream.
-#     """
-#     _id, _created, _model = None, None, None
-#     has_function_call = False
-#     for i, output in enumerate(self._generate(params)):
-#         if output["error_code"] != 0:
-#             yield output
-#             return
-#
-#         _id, _created, _model = output["id"], output["created"], output["model"]
-#         if i == 0:
-#             choice = ChunkChoice(
-#                 index=0,
-#                 delta=ChoiceDelta(role="assistant", content=""),
-#                 finish_reason=None,
-#                 logprobs=None,
-#             )
-#             yield ChatCompletionChunk(
-#                 id=f"chat{_id}",
-#                 choices=[choice],
-#                 created=_created,
-#                 model=_model,
-#                 object="chat.completion.chunk",
-#             )
-#
-#         finish_reason = output["finish_reason"]
-#         if len(output["delta"]) == 0 and finish_reason != "function_call":
-#             continue
-#
-#         function_call = None
-#         if finish_reason == "function_call":
-#             try:
-#                 _, function_call = self.prompt_adapter.parse_assistant_response(
-#                     output["text"], params.get("functions"), params.get("tools"),
-#                 )
-#             except Exception as e:
-#                 traceback.print_exc()
-#                 logger.warning("Failed to parse tool call")
-#
-#         if isinstance(function_call, dict) and "arguments" in function_call:
-#             has_function_call = True
-#             function_call = ChoiceDeltaFunctionCall(**function_call)
-#             delta = ChoiceDelta(
-#                 content=output["delta"],
-#                 function_call=function_call
-#             )
-#         elif isinstance(function_call, dict) and "function" in function_call:
-#             has_function_call = True
-#             finish_reason = "tool_calls"
-#             function_call["index"] = 0
-#             tool_calls = [model_parse(ChoiceDeltaToolCall, function_call)]
-#             delta = ChoiceDelta(
-#                 content=output["delta"],
-#                 tool_calls=tool_calls,
-#             )
-#         else:
-#             delta = ChoiceDelta(content=output["delta"])
-#
-#         choice = ChunkChoice(
-#             index=0,
-#             delta=delta,
-#             finish_reason=finish_reason,
-#             logprobs=None,
-#         )
-#         yield ChatCompletionChunk(
-#             id=f"chat{_id}",
-#             choices=[choice],
-#             created=_created,
-#             model=_model,
-#             object="chat.completion.chunk",
-#         )
-#
-#     if not has_function_call:
-#         choice = ChunkChoice(
-#             index=0,
-#             delta=ChoiceDelta(),
-#             finish_reason="stop",
-#             logprobs=None,
-#         )
-#         yield ChatCompletionChunk(
-#             id=f"chat{_id}",
-#             choices=[choice],
-#             created=_created,
-#             model=_model,
-#             object="chat.completion.chunk",
-#         )
+def is_torch_installed():
+    try:
+        import torch
+        logger.debug("PyTorch is installed. Version:", torch.__version__)
+        return True
+    except ImportError:
+        logger.warning("PyTorch is not installed.")
+        return False
 
 def set_seed(seed: int):
     """
@@ -433,7 +350,7 @@ def set_seed(seed: int):
     """
     random.seed(seed)
     np.random.seed(seed)
-    if torch.is_torch_available():
+    if is_torch_installed():
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 
@@ -441,6 +358,7 @@ def set_seed(seed: int):
 async def handle_request(request: ChatCompletionRequest) -> Union[ChatCompletionRequest, JSONResponse]:
     error = check_requests(request)
     if error is not None:
+        logger.error(f"error happened while checking request: {error.body}, {error.status_code}, {error.background}")
         return error
 
     request.stop = request.stop or []
@@ -505,114 +423,6 @@ def check_requests(request: ChatCompletionRequest) -> Optional[JSONResponse]:
         )
 
 
-# async def chat_completion_stream_generator(
-#         model_name: str, gen_params: Dict[str, Any], n: int
-# ) -> Generator[str, Any, None]:
-#     """
-#     Event stream format:
-#     https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#event_stream_format
-#     """
-#     id = f"chatcmpl-{shortuuid.random()}"
-#     finish_stream_events = []
-#     for i in range(n):
-#         # First chunk with role
-#         choice_data = ChatCompletionResponseStreamChoice(
-#             index=i,
-#             delta=DeltaMessage(role="assistant"),
-#             finish_reason=None,
-#         )
-#         chunk = ChatCompletionResponse(
-#             id=id, choices=[choice_data], model=model_name
-#         )
-#         yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
-#
-#         previous_text = ""
-#         async for content in generate(model, tokenizer, gen_params):
-#             if content["error_code"] != 0:
-#                 yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
-#                 yield "data: [DONE]\n\n"
-#                 return
-#             decoded_unicode = content["text"].replace("\ufffd", "")
-#             delta_text = decoded_unicode[len(previous_text):]
-#             previous_text = (
-#                 decoded_unicode
-#                 if len(decoded_unicode) > len(previous_text)
-#                 else previous_text
-#             )
-#
-#             if len(delta_text) == 0:
-#                 delta_text = None
-#             choice_data = ChatCompletionResponseStreamChoice(
-#                 index=i,
-#                 delta=DeltaMessage(content=delta_text),
-#                 finish_reason=content.get("finish_reason", None),
-#             )
-#             chunk = ChatCompletionResponse(
-#                 id=id, choices=[choice_data], model=model_name, object="chat.completion.chunk",
-#             )
-#             if delta_text is None:
-#                 if content.get("finish_reason", None) is not None:
-#                     finish_stream_events.append(chunk)
-#                 continue
-#             yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
-#     # There is not "content" field in the last delta message, so exclude_none to exclude field "content".
-#     for finish_chunk in finish_stream_events:
-#         yield f"data: {finish_chunk.json(exclude_none=True, ensure_ascii=False)}\n\n"
-#     yield "data: [DONE]\n\n"
-
-#
-# async def api_generate_stream(model, tokenizer, kwargs):
-#     generator = generate_stream(model, tokenizer, kwargs)
-#     return StreamingResponse(generator)
-#
-#
-# async def api_generate(model, tokenizer, kwargs):
-#     output = await asyncio.to_thread(generate, (model, tokenizer, kwargs))
-#     return JSONResponse(output)
-
-#
-# def generate(model, tokenizer, kwargs):
-#     for x in generate_stream_gate(model, tokenizer, kwargs):
-#         pass
-#     return json.loads(x[:-1].decode())
-#
-#
-# def generate_stream(model, tokenizer, kwargs):
-#     global device
-#     try:
-#         for output in _generate_stream(
-#             model,
-#             tokenizer,
-#             kwargs,
-#             device,
-#             context_len,
-#             stream_interval,
-#         ):
-#             ret = {
-#                 "text": output["text"],
-#                 "error_code": 0,
-#             }
-#             if "usage" in output:
-#                 ret["usage"] = output["usage"]
-#             if "finish_reason" in output:
-#                 ret["finish_reason"] = output["finish_reason"]
-#             if "logprobs" in output:
-#                 ret["logprobs"] = output["logprobs"]
-#             yield json.dumps(ret).encode() + b"\0"
-#     except torch.cuda.OutOfMemoryError as e:
-#         ret = {
-#             "text": f"cuda Out of memory error: \n\n({e})",
-#             "error_code": ErrorCode.CUDA_OUT_OF_MEMORY,
-#         }
-#         yield json.dumps(ret).encode() + b"\0"
-#     except (ValueError, RuntimeError) as e:
-#         ret = {
-#             "text": f"internal server error: \n\n({e})",
-#             "error_code": ErrorCode.INTERNAL_ERROR,
-#         }
-#         yield json.dumps(ret).encode() + b"\0"
-#
-
 @torch.inference_mode()
 def _generate_stream(
     model,
@@ -638,7 +448,7 @@ def _generate_stream(
     echo = bool(params.get("echo", True))
     stop_str = params.get("stop", None) or []
     stop_token_ids = params.get("stop_token_ids", None) or []
-    stop_token_ids.update([tokenizer(s) for s in stop_str])
+    stop_token_ids.extend([tokenizer(s) for s in stop_str])
 
     if tokenizer.eos_token_id not in stop_token_ids:
         stop_token_ids.append(tokenizer.eos_token_id)
@@ -840,33 +650,6 @@ def is_sentence_complete(output: str):
     return output.endswith(end_symbols)
 
 
-
-async def parse_output_text(model_id: str, value: str):
-    """
-    Directly output the text content of value
-
-    :param model_id:
-    :param value:
-    :return:
-    """
-    choice_data = ChatCompletionResponseStreamChoice(
-        index=0,
-        delta=DeltaMessage(role="assistant", content=value),
-        finish_reason=None
-    )
-    chunk = ChatCompletionResponse(model=model_id, id="", choices=[choice_data], object="chat.completion.chunk")
-    yield "{}".format(chunk.model_dump_json(exclude_unset=True))
-
-    choice_data = ChatCompletionResponseStreamChoice(
-        index=0,
-        delta=DeltaMessage(),
-        finish_reason="stop"
-    )
-    chunk = ChatCompletionResponse(model=model_id, id="", choices=[choice_data], object="chat.completion.chunk")
-    yield "{}".format(chunk.model_dump_json(exclude_unset=True))
-    yield '[DONE]'
-
-
 def load_model_and_tokenizer(model_path: str, device_map):
     tokenizer = LlamaTokenizer.from_pretrained(
         model_path,
@@ -909,17 +692,33 @@ def postprocess(output_text, stop):
     # 后处理输出
     # 这里可以实现一些后处理的逻辑，比如去除重复，过滤敏感词，添加标点等
     # 这里只是一个简单的示例，你可以根据你的需要修改它
+    logger.debug(f"original output: {output_text}")
     output_text = output_text.replace('<unk>', '').replace('▃', '\n').replace('<n>', '\n').replace('▂', ' ')
+    # output_text = output_text.lstrip("<sep>")
+    # logger.debug((f"after lstrip: {output_text}"))
+    # try:
+    #     sep_index = output_text.index("<sep>")
+    #     output_text = output_text[sep_index + len("<sep>"):]
+    # except ValueError:
+    #     pass
+
     for s in stop:
-        output_text = output_text.lstrip("<sep>").rstrip(s)
+        output_text = output_text.rstrip(s)
     return output_text
 
 
 async def generate_completion(kwargs):
-    global device
+    global model, tokenizer, device
     model.eval()
+    stop_str = kwargs.get("stop", None) or []
+    stop_token_ids = kwargs.get("stop_token_ids", None) or []
+    stop_token_ids.extend([tokenizer(s) for s in stop_str])
     with torch.no_grad():
-        input_ids = tokenizer(kwargs["prompt"], return_tensors="pt").input_ids.to(device)
+        input_ids = tokenizer(kwargs["prompt"], return_tensors="pt").input_ids
+        logger.debug(f"prompt: {kwargs['prompt']}; input_ids: {input_ids[0]}; len input_ids")
+        # remove the last token <sep>
+        prompt_tokens = len(input_ids[0]) - 1
+        input_ids = input_ids.to(device)
 
         # 生成输出
         output_ids = model.generate(
@@ -933,7 +732,24 @@ async def generate_completion(kwargs):
         )
         output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)  # 对输出进行解码
         output_text = postprocess(output_text, kwargs["stop"])  # 后处理输出
-    return output_text  # 返回输出
+        output_text = output_text.replace(kwargs["prompt"].replace("<sep>", ""), "")
+        logger.debug(f"output_text: {output_text}")
+        completion_tokens = len(tokenizer.encode(output_text))
+        usage_info = UsageInfo(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+        )
+        logger.debug(f"max_tokens: {kwargs['max_tokens']}; completion_tokens: {completion_tokens}")
+        if kwargs["max_tokens"] <= completion_tokens:
+            finish_reason = "length"
+        else:
+            finish_reason = "stop"
+    return {
+        "text": output_text,
+        "usage": usage_info,
+        "finish_reason": finish_reason,
+    }
 
 
 def stream_inference(model, tokenizer, kwargs):
