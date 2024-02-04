@@ -18,7 +18,7 @@ zhaoxudong01/trt_llm_yuan:v1.0
 # 接下来按照构建Yuan2.0 trt_llm_engine步骤操作即可
 ```
 
-我们同时提供了该镜像的[百度网盘下载地址](链接：https://pan.baidu.com/s/1l7y-dVUyJziJz-HCs4QfTA?pwd=a4fd)
+我们同时提供了该镜像的[百度网盘下载地址链接](https://pan.baidu.com/s/1l7y-dVUyJziJz-HCs4QfTA?pwd=a4fd)
 
 ## Option 2: 通过容器step by step构建
 ### Step 1. 拉取Nvidia镜像
