@@ -1,0 +1,69 @@
+# Multi-stage Dockerfile
+ARG BASE_IMAGE=nvcr.io/nvidia/pytorch
+ARG BASE_TAG=23.10-py3
+
+FROM ${BASE_IMAGE}:${BASE_TAG} as base
+
+# https://www.gnu.org/software/bash/manual/html_node/Bash-Startup-Files.html
+# The default values come from `nvcr.io/nvidia/pytorch`
+ENV BASH_ENV=${BASH_ENV:-/etc/bash.bashrc}
+ENV ENV=${ENV:-/etc/shinit_v2}
+SHELL ["/bin/bash", "-c"]
+
+FROM base as devel
+
+COPY docker/common/install_base.sh install_base.sh
+RUN bash ./install_base.sh && rm install_base.sh
+
+COPY docker/common/install_cmake.sh install_cmake.sh
+RUN bash ./install_cmake.sh && rm install_cmake.sh
+
+COPY docker/common/install_ccache.sh install_ccache.sh
+RUN bash ./install_ccache.sh && rm install_ccache.sh
+
+# Download & install internal TRT release
+ARG TRT_VER CUDA_VER CUDNN_VER NCCL_VER CUBLAS_VER
+COPY docker/common/install_tensorrt.sh install_tensorrt.sh
+RUN bash ./install_tensorrt.sh \
+    --TRT_VER=${TRT_VER} \
+    --CUDA_VER=${CUDA_VER} \
+    --CUDNN_VER=${CUDNN_VER} \
+    --NCCL_VER=${NCCL_VER} \
+    --CUBLAS_VER=${CUBLAS_VER} && \
+    rm install_tensorrt.sh
+
+# Install latest Polygraphy
+COPY docker/common/install_polygraphy.sh install_polygraphy.sh
+RUN bash ./install_polygraphy.sh && rm install_polygraphy.sh
+
+# Install mpi4py
+COPY docker/common/install_mpi4py.sh install_mpi4py.sh
+RUN bash ./install_mpi4py.sh && rm install_mpi4py.sh
+
+# Install PyTorch
+ARG TORCH_INSTALL_TYPE="skip"
+COPY docker/common/install_pytorch.sh install_pytorch.sh
+RUN bash ./install_pytorch.sh $TORCH_INSTALL_TYPE && rm install_pytorch.sh
+
+FROM devel as wheel
+WORKDIR /src/tensorrt_llm
+COPY benchmarks benchmarks
+COPY cpp cpp
+COPY benchmarks benchmarks
+COPY scripts scripts
+COPY tensorrt_llm tensorrt_llm
+COPY 3rdparty 3rdparty
+COPY setup.py requirements.txt requirements-dev.txt ./
+
+ARG BUILD_WHEEL_ARGS="--clean --trt_root /usr/local/tensorrt"
+RUN python3 scripts/build_wheel.py ${BUILD_WHEEL_ARGS}
+
+FROM devel as release
+
+WORKDIR /app/tensorrt_llm
+COPY --from=wheel /src/tensorrt_llm/build/tensorrt_llm*.whl .
+COPY --from=wheel /src/tensorrt_llm/cpp/include/ include/
+RUN pip install tensorrt_llm*.whl --extra-index-url https://pypi.nvidia.com && \
+    rm tensorrt_llm*.whl
+COPY README.md ./
+COPY examples examples

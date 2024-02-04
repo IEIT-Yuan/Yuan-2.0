@@ -212,7 +212,8 @@ docker exec -it your_name bash
 
 详细部署方案可以参考 [源2.0](https://github.com/IEIT-Yuan/Yuan-2.0/tree/main) 与 [源Chat](https://github.com/IEIT-Yuan/YuanChat/) 
 
-
+## TensorRT-LLM推理服务部署
+详细部署方案可以参考[TensorRT-LLM Yuan](./3rdparty/TensorRT-LLM/README_Yuan.md)
 
 ## 联系我们
 1.给我们发邮件：air_service@ieisystem.com

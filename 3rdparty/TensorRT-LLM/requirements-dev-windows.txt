@@ -1,0 +1,13 @@
+-r requirements-windows.txt
+--extra-index-url https://download.pytorch.org/whl/cu121
+einops
+graphviz
+mypy
+parameterized
+pre-commit
+pybind11-stubgen
+pytest-cov
+pytest-forked
+pytest-xdist
+pywin32
+typing-extensions==4.8.0
