@@ -91,8 +91,8 @@ def repetition_penalty(logits, repetition_penalty, used_tokens):
     """
     if used_tokens is not None and repetition_penalty != 1.0:
         logits_update = torch.gather(logits, 2, used_tokens)
-        logits = torch.scatter(logits, 2, used_tokens,
-                               logits_update / repetition_penalty)
+        logits_update = torch.where(logits_update > 0, logits_update / repetition_penalty, logits_update * repetition_penalty)
+        logits = torch.scatter(logits, 2, used_tokens, logits_update)
     return logits
 
 def generate_tokens_probs_and_return_on_first_stage(
