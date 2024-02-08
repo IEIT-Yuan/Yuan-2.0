@@ -40,11 +40,12 @@
 
 ## 持续更新🔥🔥🔥
 
+* [2024-02-04] [增加用 TensorRT-LLM & Triton Server 部署2B模型](https://github.com/inspurMJX/Yuan-2.0/blob/main/3rdparty/TensorRT-LLM/README_Yuan.md),详请参见本页中的章节
 * [2024-01-24] [源2.0适配FastChat框架](https://github.com/lm-sys/FastChat/blob/main/docs/model_support.md)，支持最新[对话模板](https://huggingface.co/IEITYuan/Yuan2-2B-Janus-hf/blob/main/tokenizer_config.json#L6)：FastChat是一个用于训练、部署和评估基于大型语言模型的开放平台。用户可以基于FastChat框架更快、更灵活地使用源2.0大模型。
 * [2024-01-13] [新版 2B 模型发布：Yuan2-2B-Janus-hf](https://huggingface.co/IEITYuan/Yuan2-2B-Janus-hf)：**从评测结果上来看，新版本的Yuan2-2B模型在推理、代码、对话等领域，均取得了显著的成果。准确率方面，HumanEval的评测结果从54.9%提升至61.5%，GSM8K的评测结果从66.6%提升至70.2% 。**
 * [2024-01-04] [使用 源Chat(YuanChat) 搭建对话应用](https://github.com/IEIT-Yuan/YuanChat/tree/main):源Chat 是Yuan-2.0 项目的一部分, 作为Yuan-2.0的一个客户端应用. 源Chat 提供了一种简单的交互方式，可以让用户很轻松的使用 Yuan-2.0, 用户可以很方便的进行测试以及使用。
 * [2024-01-02] [增加 Hugging Face 版本模型下载链接](https://github.com/IEIT-Yuan/Yuan-2.0?tab=readme-ov-file#hugging-face%E7%89%88%E6%9C%AC-),详情参见本页中的章节。
-* [2024-02-04] [增加用 TensorRT-LLM & Triton Server 部署2B模型](https://github.com/inspurMJX/Yuan-2.0/blob/main/3rdparty/TensorRT-LLM/README_Yuan.md),详请参见本页中的章节
+
 
 
 
