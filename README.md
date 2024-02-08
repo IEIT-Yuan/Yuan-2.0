@@ -44,6 +44,7 @@
 * [2024-01-13] [新版 2B 模型发布：Yuan2-2B-Janus-hf](https://huggingface.co/IEITYuan/Yuan2-2B-Janus-hf)：**从评测结果上来看，新版本的Yuan2-2B模型在推理、代码、对话等领域，均取得了显著的成果。准确率方面，HumanEval的评测结果从54.9%提升至61.5%，GSM8K的评测结果从66.6%提升至70.2% 。**
 * [2024-01-04] [使用 源Chat(YuanChat) 搭建对话应用](https://github.com/IEIT-Yuan/YuanChat/tree/main):源Chat 是Yuan-2.0 项目的一部分, 作为Yuan-2.0的一个客户端应用. 源Chat 提供了一种简单的交互方式，可以让用户很轻松的使用 Yuan-2.0, 用户可以很方便的进行测试以及使用。
 * [2024-01-02] [增加 Hugging Face 版本模型下载链接](https://github.com/IEIT-Yuan/Yuan-2.0?tab=readme-ov-file#hugging-face%E7%89%88%E6%9C%AC-),详情参见本页中的章节。
+* [2024-02-04] [增加用 TensorRT-LLM & Triton Server 部署2B模型](https://github.com/inspurMJX/Yuan-2.0/blob/main/3rdparty/TensorRT-LLM/README_Yuan.md),详请参见本页中的章节
 
 
 
@@ -213,6 +214,21 @@ docker exec -it your_name bash
 详细部署方案可以参考 [源2.0](https://github.com/IEIT-Yuan/Yuan-2.0/tree/main) 与 [源Chat](https://github.com/IEIT-Yuan/YuanChat/) 
 
 ## TensorRT-LLM推理服务部署
+性能测试
+
+我们比较了Yuan2.0-2B的trt_llm模型和原始的megatron模型进行的推理速度
+
+max_output_len=300, prompt="写一篇春游作文<sep>"
+
+| Batch_size |  Megatron(推理速度:token/s)   |   trt-llm-engine_2B(推理速度:token/s)  |   性能提升(倍)          
+| :---------: |:----------------------------:|:--------------------------------------:|:------------:|
+| 1 | 29 | 124 | 4.35 |
+| 4 | 114| 477 | 4.17 |
+| 8 | 229 | 880 | 3.85 |
+| 16 | 432| 1888 | 4.37 |
+| 32 | 842 | 3326 | 3.95 |
+| 64 | 1684| 6724 | 3.99 |
+
 详细部署方案可以参考[TensorRT-LLM Yuan](./3rdparty/TensorRT-LLM/README_Yuan.md)
 
 ## 联系我们
