@@ -128,11 +128,6 @@ def add_args(parser):
 
     return parser
 
-megatron_to_transformers = {
-    "mlp.dense_h_to_4h": [".mlp.fc1_weight."],
-    "mlp.dense_4h_to_h": ".mlp.fc2_weight.",
-}
-
 
 def get_element_from_dict_by_path(d, path):
     """
@@ -147,11 +142,6 @@ def get_element_from_dict_by_path(d, path):
             d[k] = {}
         d = d[k]
     return d
-
-def _init_embedding_weights(module):
-    std = 0.02
-    module.weight.data.normal_(mean=0.0, std=std)
-
 
 def get_megatron_sharded_states(args, tp_size, pp_size, pp_rank):
     """
@@ -176,12 +166,14 @@ def get_megatron_sharded_states(args, tp_size, pp_size, pp_rank):
 def convert_checkpoint_from_megatron_to_te(args):
     os.makedirs(args.save_path, exist_ok=True)
     sub_dirs = os.listdir(args.load_path)
-    possible_sub_dirs = ["mp_rank_00", "mp_rank_00_000"]
+    possible_sub_dirs = ["mp_rank_00", "mp_rank_01", "mp_rank_02", "mp_rank_03", 
+            "mp_rank_04","mp_rank_05", "mp_rank_06", "mp_rank_07",]
     for sub_dir in possible_sub_dirs:
         if sub_dir in sub_dirs:
             rank0_checkpoint_name = [i for i in os.listdir(os.path.join(args.load_path, sub_dir)) if 'rng' in i][0]
             rank0_checkpoint_path = os.path.join(args.load_path, sub_dir, rank0_checkpoint_name)
             break
+            
     print(f"Loading Megatron-LM checkpoint arguments from: {rank0_checkpoint_path}")
     state_dict = torch.load(rank0_checkpoint_path, map_location="cpu")
     megatron_args = state_dict.get("args", None)
@@ -223,39 +215,46 @@ def convert_checkpoint_from_megatron_to_te(args):
 
     # Convert.
     # print("Converting")
+    for tp_rank in range(tp_size):
+        for key, val in tp_state_dicts[0]["model"]["language_model"]["encoder"].items():
+    
+            # Match the name.
+            # print(key)
+            m = layer_re.match(key)
+            # Stop if that's not a layer
+            if m is None:
+                continue
+    
+            # The index of the layer.
+            layer_idx = int(m.group(1))
+            # The name of the operation.
+            op_name = m.group(2)
+            # Is it a weight or a bias?
+            weight_or_bias = m.group(3)
+            layer_name = f"layers.{layer_idx}"
+            # print(layer_name, op_name, weight_or_bias)
+    
+            if weight_or_bias == '_extra_state':
+                continue
+            else:
+                params = val.to(dtype)
+    
+    
+            if op_name == "mlp.dense_h_to_4h":
+                out_name = ".mlp.fc1_weight"
+                output_state_dict[layer_name + out_name] = params.to(dtype).clone()
+            elif op_name == "mlp.dense_4h_to_h":
+                out_name = ".mlp.fc2_weight"
+                output_state_dict[layer_name + out_name] = params.to(dtype).clone()
+            else:
+                output_state_dict[layer_name + '.' + op_name + '.' + weight_or_bias] = params.to(dtype).clone()
+        # print(output_state_dict)
+        print("Converting final layernorm")
+        params = get_element_from_dict_by_path(tp_state_dicts[0], "model.language_model.encoder")
+        output_state_dict["final_layernorm.weight"] = params["final_layernorm.weight"].to(dtype).clone()
 
-    for key, val in tp_state_dicts[0]["model"]["language_model"]["encoder"].items():
 
-        # Match the name.
-        # print(key)
-        m = layer_re.match(key)
-        # Stop if that's not a layer
-        if m is None:
-            continue
-
-        # The index of the layer.
-        layer_idx = int(m.group(1))
-        # The name of the operation.
-        op_name = m.group(2)
-        # Is it a weight or a bias?
-        weight_or_bias = m.group(3)
-        layer_name = f"layers.{layer_idx}"
-        # print(layer_name, op_name, weight_or_bias)
-
-        params = val.to(dtype)
-
-
-        if op_name == "mlp.dense_h_to_4h":
-            out_name = ".mlp.fc1_weight"
-            output_state_dict[layer_name + out_name] = params.clone()
-        elif op_name == "mlp.dense_4h_to_h":
-            out_name = ".mlp.fc2_weight"
-            output_state_dict[layer_name + out_name] = params.clone()
-        else:
-            output_state_dict[layer_name + '.' + op_name + '.' + weight_or_bias] = params.clone()
-    # print(output_state_dict)
-
-    tp_state_dicts[0]["model"]["language_model"]["encoder"] = output_state_dict
+    tp_state_dicts[tp_rank]["model"]["language_model"]["encoder"] = output_state_dict
 
     for tp_rank in range(args.target_tensor_model_parallel_size):
         checkpoint_dir = (
