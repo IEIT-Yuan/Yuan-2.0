@@ -68,14 +68,4 @@ The `DATA_PATH` can be set :
 
 ```shell
 DATA_PATH='1 /path/dataset'
-```
-
-
-### Performance
-在`8`张`L40s`上使用不同的数据类型对`2B`模型的预训练和微调分别进行测试，如下是测试结果，使用`FP8`相较于`BF16`有`30%`的性能提升。
-
-|    times/step     | BF16  |     FP8     |
-| :----------: | :------: | :-----------: |
-| pretrain |    16.61    | 12.77| 
-| instruct_tuning |    16.37    | 12.83|   
-
+``` 
