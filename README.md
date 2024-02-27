@@ -39,7 +39,7 @@
 
 
 ## 持续更新🔥🔥🔥
-* [2024-02-27] [增加用FP8精度训练和微调源2.0 2B模型](https://github.com/IEIT-Yuan/Yuan-2.0/tree/yuan2.0-fp8/docs/FP8.md),详请参见本页中的章节
+* [2024-02-27] [增加用FP8精度训练和微调源2.0 2B模型](./docs/FP8.md),详请参见本页中的章节
 * [2024-02-04] [增加用 TensorRT-LLM & Triton Server 部署2B模型](https://github.com/inspurMJX/Yuan-2.0/blob/main/3rdparty/TensorRT-LLM/README_Yuan.md),详请参见本页中的章节
 * [2024-01-24] [源2.0适配FastChat框架](https://github.com/lm-sys/FastChat/blob/main/docs/model_support.md)，支持最新[对话模板](https://huggingface.co/IEITYuan/Yuan2-2B-Janus-hf/blob/main/tokenizer_config.json#L6)：FastChat是一个用于训练、部署和评估基于大型语言模型的开放平台。用户可以基于FastChat框架更快、更灵活地使用源2.0大模型。
 * [2024-01-13] [新版 2B 模型发布：Yuan2-2B-Janus-hf](https://huggingface.co/IEITYuan/Yuan2-2B-Janus-hf)：**从评测结果上来看，新版本的Yuan2-2B模型在推理、代码、对话等领域，均取得了显著的成果。准确率方面，HumanEval的评测结果从54.9%提升至61.5%，GSM8K的评测结果从66.6%提升至70.2% 。**
@@ -241,7 +241,8 @@ max_output_len=300, prompt="写一篇春游作文<sep>"
 | :----------: | :------: | :-----------: |
 | pretrain |    16.61    | 12.77| 
 | instruct_tuning |    16.37    | 12.83|   
-详细方案可以参考[Yuan_FP8](https://github.com/IEIT-Yuan/Yuan-2.0/tree/yuan2.0-fp8/docs/FP8.md)
+
+详细方案可以参考[Yuan_FP8](./docs/FP8.md)
 
 ## 联系我们
 1.给我们发邮件：air_service@ieisystem.com
