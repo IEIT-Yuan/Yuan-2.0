@@ -31,9 +31,9 @@ DATA_PATH='1 /path/dataset'
 
 ### Instruct_tuning
 
-转换`megatron`权重为`transformer_engine`对应的权重,以`Yuan-2.1B`为例:
+转换`megatron`权重为`transformer_engine`对应的权重,以`Yuan2.0-2B`为例:
 ```shell
-bash tools/model_convert/megatron2te_convertor.sh /PATH/Yuan-2.0/ /PATH/2B/iter_0000001 /PATH/2B_TE 1 1 yuan2-2b 0
+bash tools/model_convert/megatron2te_convertor.sh /PATH/Yuan-2.0/ /PATH/2B/iter_0000001 /PATH/2B_TE tp pp yuan2-2b 0
 ```
 
 修改`load`模型时的参数,`strict`设置为`False`,原因在于`Transformer engine`中多了`_extra_state`是用来存`fp8`训练的`scale`和`history`的，这些在加载的时候会出现冲突
