@@ -12,11 +12,10 @@ NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
-#CHECKPOINT_PATH=/home/lx/Yuan-2.0/yuan2-2b-hf-to-megatron-fp8
-CHECKPOINT_PATH=/home/lx/Yuan-2.0_fp8/2B_te
-DATA_PATH=/home/lx/Yuan-2.0/data/train_sft/train_sample_2W.txt_document_context
-TOKENIZER_MODEL_PATH=/home/lx/Yuan-2.0/tokenizer/tokenizer.model
-TENSORBOARD_PATH=/home/lx/Yuan-2.0/tensorboard
+CHECKPOINT_PATH=<Specify path>
+DATA_PATH=<Specify path and file prefix>_text_document
+TOKENIZER_MODEL_PATH=<Specify path to file>
+TENSORBOARD_PATH=<Specify path to file>
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
