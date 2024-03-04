@@ -427,7 +427,7 @@ class LocalizedFiltering(torch.nn.Module):
         assert output2.shape == residual.shape
 
         lf_output = self.output_layernorm(output2 + residual)
-        return lf_output        
+        return lf_output
     
     def _inference_forward(self, inputs, before_hidden_states):
     
@@ -838,6 +838,403 @@ class ParallelAttention(MegatronModule):
         # =================
 
         output, bias = self.dense(context_layer)
+
+        return output, bias
+
+
+class ParallelTEAttention(MegatronModule):
+    """Parallel self-attention layer abstract class.
+
+    Self-attention layer takes input with size [s, b, h]
+    and returns output of the same size.
+    """
+
+    def __init__(self, config, layer_number,
+                 attention_type=AttnType.self_attn,
+                 attn_mask_type=AttnMaskType.padding):
+        super(ParallelTEAttention, self).__init__()
+        args = get_args()
+        self.layer_number = max(1, layer_number)
+        self.attention_type = attention_type
+        self.attn_mask_type = attn_mask_type
+        self.params_dtype = config.params_dtype
+        self.sequence_parallel = config.sequence_parallel
+        self.flash_attn_drop = args.flash_attn_drop
+        self.use_lf_gate = args.use_lf_gate
+        self.hidden_size = config.hidden_size
+
+        self.use_flash_attn = args.use_flash_attn \
+                              and attention_type == AttnType.self_attn \
+                              and self.attn_mask_type == AttnMaskType.causal
+        if self.use_flash_attn:
+            if flash_attn_unpadded_func is None:
+                raise ImportError('FlashAttention is not installed, please install with '
+                                  'pip install flash-attn')
+            assert attention_type == AttnType.self_attn, ('FlashAttention code path only supports '
+                                                          'self-attention for now')
+            assert self.attn_mask_type == AttnMaskType.causal, ('FlashAttention code path only '
+                                                                'supports causal mask for now')
+            if rearrange is None:
+                raise ImportError('einops is not installed, please install with pip install einops')
+
+        projection_size = config.kv_channels * config.num_attention_heads
+
+        # Per attention head and per partition values.
+        world_size = mpu.get_tensor_model_parallel_world_size()
+        self.hidden_size_per_attention_head = core.utils.divide(
+            projection_size, config.num_attention_heads)
+        self.num_attention_heads_per_partition = core.utils.divide(
+            config.num_attention_heads, world_size)
+
+        # Strided linear layer.
+        if attention_type == AttnType.self_attn:
+            if self.use_lf_gate:
+                from transformer_engine.pytorch.module import Linear
+                self.get_value = Linear(
+                    config.hidden_size,
+                    projection_size,
+                    init_method=config.init_method,
+                    bias=config.add_bias_linear,
+                    parallel_mode='column',
+                    fuse_wgrad_accumulation=config.gradient_accumulation_fusion,
+                    tp_group=mpu.get_tensor_model_parallel_group(),
+                    tp_size=args.tensor_model_parallel_size,
+                    get_rng_state_tracker=tensor_parallel.get_cuda_rng_tracker,
+                    sequence_parallel=config.sequence_parallel,
+                    params_dtype=config.params_dtype,
+                )
+
+                self.get_query_key = Linear(
+                    config.hidden_size,
+                    2 * projection_size,
+                    init_method=config.init_method,
+                    bias=config.add_bias_linear,
+                    parallel_mode='column',
+                    fuse_wgrad_accumulation=config.gradient_accumulation_fusion,
+                    tp_group=mpu.get_tensor_model_parallel_group(),
+                    tp_size=args.tensor_model_parallel_size,
+                    get_rng_state_tracker=tensor_parallel.get_cuda_rng_tracker,
+                    sequence_parallel=config.sequence_parallel,
+                    params_dtype=config.params_dtype,
+                )
+                # self.get_value = tensor_parallel.ColumnParallelLinear(
+                #     config.hidden_size,
+                #     projection_size,
+                #     config=config,
+                #     init_method=config.init_method,
+                #     bias=config.add_bias_linear,
+                #     gather_output=False)
+
+                # self.get_query_key = tensor_parallel.ColumnParallelLinear(
+                #     config.hidden_size,
+                #     2 * projection_size,
+                #     config=config,
+                #     init_method=config.init_method,
+                #     bias=config.add_bias_linear,
+                #     gather_output=False)
+
+                self.lf_gate = LocalizedFiltering()
+            else:
+                self.query_key_value = tensor_parallel.ColumnParallelLinear(
+                    config.hidden_size,
+                    3 * projection_size,
+                    config=config,
+                    init_method=config.init_method,
+                    bias=args.add_bias_linear,
+                    gather_output=False)
+        else:
+            assert attention_type == AttnType.cross_attn
+            self.query = tensor_parallel.ColumnParallelLinear(
+                config.hidden_size,
+                projection_size,
+                config=config,
+                init_method=config.init_method,
+                bias=config.add_bias_linear,
+                gather_output=False)
+
+            self.key_value = tensor_parallel.ColumnParallelLinear(
+                config.hidden_size,
+                2 * projection_size,
+                config=config,
+                init_method=config.init_method,
+                bias=config.add_bias_linear,
+                gather_output=False)
+
+        self.core_attention = CoreAttention(self.layer_number, config,
+                                            self.attn_mask_type)
+        self.checkpoint_core_attention = config.recompute_granularity == 'selective'
+
+        if self.use_flash_attn:
+            self.core_attention_flash = FlashSelfAttention(
+                causal=True, attention_dropout=self.flash_attn_drop
+            )
+
+        # Output.
+        # self.dense = Linear(
+        #     projection_size,
+        #     config.hidden_size,
+        #     init_method=config.output_layer_init_method,
+        #     bias=config.add_bias_linear,
+        #     return_bias=True,
+        #     parallel_mode='row',
+        #     fuse_wgrad_accumulation=config.gradient_accumulation_fusion,
+        #     tp_group=mpu.get_tensor_model_parallel_group(),
+        #     tp_size=args.tensor_model_parallel_size,
+        #     get_rng_state_tracker=tensor_parallel.get_cuda_rng_tracker,
+        #     sequence_parallel=config.sequence_parallel,
+        #     params_dtype=config.params_dtype,
+        # )
+        self.dense = tensor_parallel.RowParallelLinear(
+            projection_size,
+            config.hidden_size,
+            config=config,
+            init_method=config.output_layer_init_method,
+            bias=args.add_bias_linear,
+            input_is_parallel=True,
+            skip_bias_add=True)
+
+    def _checkpointed_attention_forward(self, query_layer, key_layer,
+                                        value_layer, attention_mask,
+                                        rotary_pos_emb=None):
+        """Forward method with activation checkpointing."""
+
+        def custom_forward(*inputs):
+            query_layer = inputs[0]
+            key_layer = inputs[1]
+            value_layer = inputs[2]
+            attention_mask = inputs[3]
+            output_ = self.core_attention(query_layer, key_layer,
+                                          value_layer, attention_mask)
+            return output_
+
+        q_pos_emb, k_pos_emb = (None, None) if rotary_pos_emb is None \
+            else rotary_pos_emb
+
+        hidden_states = tensor_parallel.checkpoint(
+            custom_forward,
+            False, query_layer, key_layer, value_layer, attention_mask,
+            q_pos_emb, k_pos_emb)
+
+        return hidden_states
+
+    def _allocate_memory(self, inference_max_sequence_len, batch_size):
+        return torch.empty(
+            inference_max_sequence_len,
+            batch_size,
+            self.num_attention_heads_per_partition,
+            self.hidden_size_per_attention_head,
+            dtype=self.params_dtype,
+            device=torch.cuda.current_device())
+
+    def _allocate_memory_hidden_states(self, batch_size):
+        return torch.empty(
+            2,
+            batch_size,
+            self.hidden_size,
+            dtype=self.params_dtype,
+            device=torch.cuda.current_device())
+
+    def forward(self, hidden_states, attention_mask, enc_position_ids,
+                encoder_output=None, inference_params=None,
+                rotary_pos_emb=None):
+        # hidden_states: [sq, b, h]
+
+        # =================================================
+        # Pre-allocate memory for key-values for inference.
+        # =================================================
+        is_first_step = False
+        before_hidden_states = None
+        if inference_params:
+            if self.layer_number not in inference_params.key_value_memory_dict:
+                inf_max_seq_len = inference_params.max_sequence_len
+                inf_max_batch_size = inference_params.max_batch_size
+                inference_key_memory = self._allocate_memory(
+                    inf_max_seq_len, inf_max_batch_size)
+                inference_value_memory = self._allocate_memory(
+                    inf_max_seq_len, inf_max_batch_size)
+
+                inference_hidden_states_memory = self._allocate_memory_hidden_states(
+                    inf_max_batch_size)
+
+                inference_params.key_value_memory_dict[self.layer_number] = (
+                    inference_key_memory, inference_value_memory)
+
+                inference_params.hidden_states_memory_dict[self.layer_number] = (
+                    inference_hidden_states_memory)
+
+                is_first_step = True
+            else:
+                inference_key_memory, inference_value_memory = \
+                    inference_params.key_value_memory_dict[self.layer_number]
+                before_hidden_states = inference_params.hidden_states_memory_dict[self.layer_number].clone()
+
+        if inference_params:
+            if is_first_step:
+                sep_length, _, _ = hidden_states.size()
+                if sep_length >= 2:
+                    inference_params.hidden_states_memory_dict[self.layer_number] = hidden_states[-2:, :, :]
+                else:
+                    inference_params.hidden_states_memory_dict[self.layer_number][:, :, :] = 0
+                    inference_params.hidden_states_memory_dict[self.layer_number][-1:, :, :] = hidden_states[-1:, :, :]
+            else:
+                hidden_states_tmp = before_hidden_states[-1:, :, :]
+                inference_params.hidden_states_memory_dict[self.layer_number][:1, :, :] = hidden_states_tmp
+                inference_params.hidden_states_memory_dict[self.layer_number][1:, :, :] = hidden_states
+        # =====================
+        # Query, Key, and Value
+        # =====================
+        self.num_microbatches_in_previous_step = -1
+        self.microbatch_count = 0
+        if self.num_microbatches_in_previous_step != get_num_microbatches():
+            self.microbatch_count = 0  # Reset count on new batch size rampup interval
+        self.num_microbatches_in_previous_step = get_num_microbatches()
+        is_first_microbatch = self.microbatch_count % get_num_microbatches() == 0
+
+        if self.attention_type == AttnType.self_attn:
+            if self.use_lf_gate:
+                # Attention head [sq, b, h] --> [sq, b, hp]
+                value_layer = self.get_value(hidden_states, is_first_microbatch=is_first_microbatch)
+                # [sq, b, hp] --> [sq, b, np, hn]
+                new_tensor_shape = value_layer.size()[:-1] + \
+                                   (self.num_attention_heads_per_partition,
+                                    self.hidden_size_per_attention_head)
+                value_layer = value_layer.view(*new_tensor_shape)
+
+                hidden_states = self.lf_gate(hidden_states, before_hidden_states)
+
+                hidden_states = hidden_states.contiguous()
+                # Attention heads [sk, b, h] --> [sk, b, (np * 2 * hn)]
+                mixed_qk_layer = self.get_query_key(hidden_states, is_first_microbatch=is_first_microbatch)
+
+                # [sk, b, (np * 2 * hn)] --> [sk, b, np, 2 * hn]
+                new_tensor_shape = mixed_qk_layer.size()[:-1] + \
+                                   (self.num_attention_heads_per_partition,
+                                    2 * self.hidden_size_per_attention_head)
+                mixed_qk_layer = mixed_qk_layer.view(*new_tensor_shape)
+
+                # [sk, b, np, 2 * hn] --> 2 [sk, b, np, hn]
+                (query_layer,
+                 key_layer) = tensor_parallel.split_tensor_along_last_dim(mixed_qk_layer, 2)
+            else:
+                # Attention heads [sq, b, h] --> [sq, b, (np * 3 * hn)]
+                mixed_x_layer, _ = self.query_key_value(hidden_states)
+
+                # [sq, b, (np * 3 * hn)] --> [sq, b, np, 3 * hn]
+                new_tensor_shape = mixed_x_layer.size()[:-1] + \
+                                   (self.num_attention_heads_per_partition,
+                                    3 * self.hidden_size_per_attention_head)
+                mixed_x_layer = mixed_x_layer.view(*new_tensor_shape)
+
+                # [sq, b, np, 3 * hn] --> 3 [sq, b, np, hn]
+                (query_layer,
+                 key_layer,
+                 value_layer) = tensor_parallel.split_tensor_along_last_dim(mixed_x_layer, 3)
+        else:
+            # Attention heads [sk, b, h] --> [sk, b, (np * 2 * hn)]
+            mixed_kv_layer, _ = self.key_value(encoder_output)
+
+            # [sk, b, (np * 2 * hn)] --> [sk, b, np, 2 * hn]
+            new_tensor_shape = mixed_kv_layer.size()[:-1] + \
+                               (self.num_attention_heads_per_partition,
+                                2 * self.hidden_size_per_attention_head)
+            mixed_kv_layer = mixed_kv_layer.view(*new_tensor_shape)
+
+            # [sk, b, np, 2 * hn] --> 2 [sk, b, np, hn]
+            (key_layer,
+             value_layer) = tensor_parallel.split_tensor_along_last_dim(mixed_kv_layer, 2)
+
+            # Attention head [sq, b, h] --> [sq, b, hp]
+            query_layer, _ = self.query(hidden_states)
+            # [sq, b, hp] --> [sq, b, np, hn]
+            new_tensor_shape = query_layer.size()[:-1] + \
+                               (self.num_attention_heads_per_partition,
+                                self.hidden_size_per_attention_head)
+            query_layer = query_layer.view(*new_tensor_shape)
+
+        # ==================================
+        # Adjust key and value for inference
+        # ==================================
+
+        # duplicate the pos_emb for self attention
+        if rotary_pos_emb is not None:
+            if isinstance(rotary_pos_emb, tuple):
+                rotary_pos_emb = rotary_pos_emb
+            else:
+                rotary_pos_emb = ((rotary_pos_emb,) * 2)
+
+        if inference_params:
+            batch_start = inference_params.batch_size_offset
+            batch_end = batch_start + key_layer.size(1)
+            assert batch_end <= inference_key_memory.size(1)
+            sequence_start = inference_params.sequence_len_offset
+            sequence_end = sequence_start + key_layer.size(0)
+            assert sequence_end <= inference_key_memory.size(0)
+            # Copy key and values.
+            inference_key_memory[sequence_start:sequence_end,
+            batch_start:batch_end, ...] = key_layer
+            inference_value_memory[sequence_start:sequence_end,
+            batch_start:batch_end, ...] = value_layer
+            key_layer = inference_key_memory[
+                        :sequence_end, batch_start:batch_end, ...]
+            value_layer = inference_value_memory[
+                          :sequence_end, batch_start:batch_end, ...]
+
+            # adjust the key rotary positional embedding
+            if rotary_pos_emb is not None:
+                q_pos_emb, k_pos_emb = rotary_pos_emb
+                # need to cross check this condition during inference
+                # if not set_inference_key_value_memory:
+                if not is_first_step:
+                    # In inference, we compute one token at a time.
+                    # Select the correct positional embedding
+                    # (only the last token in the sequence)
+                    q_pos_emb = q_pos_emb[sequence_end - 1: sequence_end]
+                else:
+                    # In the first forward pass of inference,
+                    # we use the entire provided prefix.
+                    # q_pos_emb here has the rope embeddings of the entire
+                    # prefix + to-be-generated output so
+                    # we slice to just the prefix.
+                    q_pos_emb = q_pos_emb[:sequence_end, :, :, :]
+                k_pos_emb = k_pos_emb[:sequence_end, :, :, :]
+                rotary_pos_emb = (q_pos_emb, k_pos_emb)
+
+        # ==================================
+        # core attention computation
+        # ==================================
+
+        # apply relative positional encoding (rotary embedding)
+        if rotary_pos_emb is not None:
+            q_pos_emb, k_pos_emb = rotary_pos_emb
+            query_layer = apply_rotary_pos_emb(query_layer, q_pos_emb, enc_position_ids)
+            key_layer = apply_rotary_pos_emb(key_layer, k_pos_emb, enc_position_ids)
+            # TODO, can apply positional embedding to value_layer so it has
+            # absolute positional embedding.
+            # otherwise, only relative positional embedding takes effect
+            # value_layer = apply_rotary_pos_emb(value_layer, k_pos_emb)
+
+        if not self.use_flash_attn:
+            if self.checkpoint_core_attention:
+                context_layer = self._checkpointed_attention_forward(
+                    query_layer, key_layer, value_layer, attention_mask)
+            else:
+                context_layer = self.core_attention(
+                    query_layer, key_layer, value_layer, attention_mask)
+        else:
+            q, k, v = [rearrange(x, 's b ... -> b s ...').contiguous()
+                       for x in (query_layer, key_layer, value_layer)]
+            if not self.sequence_parallel:
+                with tensor_parallel.get_cuda_rng_tracker().fork():
+                    context_layer = self.core_attention_flash(q, k, v)
+            else:
+                context_layer = self.core_attention_flash(q, k, v)
+            context_layer = rearrange(context_layer, 'b s h d -> s b (h d)').contiguous()
+
+        # =================
+        # Output. [sq, b, h]
+        # =================
+
+        output, bias= self.dense(context_layer)
 
         return output, bias
 
@@ -1319,6 +1716,473 @@ class ParallelTransformerLayer(MegatronModule):
             return output
 
 
+class ParallelTransformerengineLayer(MegatronModule):
+    """A single transformer layer.
+
+    Transformer layer takes input with size [s, b, h] and returns an
+    output of the same size.
+    """
+
+    def __init__(self, config,
+                 layer_number, layer_type=LayerType.encoder,
+                 self_attn_mask_type=AttnMaskType.padding,
+                 drop_path_rate=0.):
+                 # retriever=None):
+        args = get_args()
+
+        super(ParallelTransformerengineLayer, self).__init__()
+        self.layer_number = layer_number
+        self.layer_type = layer_type
+
+        self.apply_residual_connection_post_layernorm \
+            = config.apply_residual_connection_post_layernorm
+
+        self.bf16 = config.bf16
+        self.fp32_residual_connection = config.fp32_residual_connection
+
+        # Layernorm on the input data.
+        if args.norm_dtype == "LayerNorm":
+            self.input_layernorm = LayerNorm(
+                config.hidden_size,
+                eps=config.layernorm_epsilon,
+                no_persist_layer_norm=args.no_persist_layer_norm,
+                sequence_parallel=config.sequence_parallel,
+                apply_layernorm_1p=args.apply_layernorm_1p)
+        elif args.norm_dtype == "RMSNorm":
+            self.input_layernorm = RMSNorm(config.hidden_size, eps=1e-6)
+
+        # Self attention.
+        self.self_attention = ParallelTEAttention(
+            config,
+            layer_number,
+            attention_type=AttnType.self_attn,
+            attn_mask_type=self_attn_mask_type)
+        self.hidden_dropout = config.hidden_dropout
+        self.bias_dropout_fusion = config.bias_dropout_fusion
+        self.drop_path = DropPath(drop_path_rate) if drop_path_rate > 0.0 else None
+
+        # Layernorm on the attention output
+        if args.norm_dtype == "LayerNorm":
+            self.post_attention_layernorm = LayerNorm(
+                config.hidden_size,
+                eps=config.layernorm_epsilon,
+                no_persist_layer_norm=not config.persist_layer_norm,
+                sequence_parallel=config.sequence_parallel,
+                apply_layernorm_1p=args.apply_layernorm_1p)
+        elif args.norm_dtype == "RMSNorm":
+            self.post_attention_layernorm = RMSNorm(config.hidden_size, eps=1e-6)
+
+        # Cross attention.
+        if self.layer_type in (LayerType.decoder,
+                               LayerType.retro_decoder,
+                               LayerType.retro_decoder_with_retriever,
+                               LayerType.retro_encoder):
+            self.inter_attention = ParallelAttention(
+                config,
+                layer_number,
+                attention_type=AttnType.cross_attn)
+            # Layernorm on the attention output.
+            self.post_inter_attention_layernorm = LayerNorm(
+                config.hidden_size,
+                eps=config.layernorm_epsilon,
+                no_persist_layer_norm=not config.persist_layer_norm,
+                sequence_parallel=config.sequence_parallel,
+                apply_layernorm_1p=args.apply_layernorm_1p)
+
+        # MLP
+        if args.num_experts is not None:
+            self.mlp = SwitchMLP(config)
+        else:
+            self.mlp = transformer_engine.pytorch.module.LayerNormMLP(
+                config.hidden_size,
+                config.ffn_hidden_size,
+                eps=config.layernorm_epsilon,
+                fuse_wgrad_accumulation=config.gradient_accumulation_fusion,
+                tp_group=mpu.get_tensor_model_parallel_group(),
+                tp_size=args.tensor_model_parallel_size,
+                get_rng_state_tracker=tensor_parallel.get_cuda_rng_tracker,
+                init_method=config.init_method,
+                output_layer_init_method=config.output_layer_init_method,
+                bias=True,
+                return_bias=True,
+                sequence_parallel=config.sequence_parallel,
+                params_dtype=config.params_dtype,
+                return_layernorm_output=config.apply_residual_connection_post_layernorm,
+                seq_length=args.seq_length,
+                micro_batch_size=args.micro_batch_size,
+                set_parallel_mode=True,
+                activation="swiglu" if args.swiglu else "gelu",
+                normalization=args.norm_dtype,
+            )
+
+            # self.mlp = ParallelMLP(config)
+
+        # Set bias+dropout+add fusion grad_enable execution handler.
+        TORCH_MAJOR = int(torch.__version__.split('.')[0])
+        TORCH_MINOR = int(torch.__version__.split('.')[1])
+        use_nvfuser = TORCH_MAJOR > 1 or (TORCH_MAJOR == 1 and TORCH_MINOR >= 10)
+        self.bias_dropout_add_exec_handler = \
+                nullcontext if use_nvfuser else torch.enable_grad
+
+        if args.retro_add_retriever:
+            retro_args = get_retro_args()
+            self.retro_num_neighbors = args.retro_num_neighbors
+            self.retro_chunk_length = retro_args.retro_gpt_chunk_length
+            self.retro_retrieved_length = retro_args.retro_gpt_retrieved_length
+
+        # Retriever (bi-directional transformer with cross attention)
+        if layer_type == LayerType.retro_decoder_with_retriever:
+            self.retriever = ParallelTransformer(
+                config=config,
+                model_type=ModelType.retro_encoder,
+                self_attn_mask_type=AttnMaskType.padding,
+                pre_process=True,
+                post_process=False,
+            )
+            self._retriever_key = 'retriever'
+        else:
+            self.retriever = None
+
+    def default_decoder_cross_attention(self,
+                                        encoder_output,
+                                        enc_dec_attn_mask,
+                                        layernorm_input,
+                                        layernorm_output,
+                                        bias_dropout_add_func):
+        '''Cross attention for a standard encoder-decoder model.'''
+
+        # Attention.
+        attention_output, attention_bias = \
+            self.inter_attention(layernorm_output,
+                                 enc_dec_attn_mask,
+                                 encoder_output=encoder_output)
+
+        # Residual connection.
+        if self.apply_residual_connection_post_layernorm:
+            residual = layernorm_output
+        else:
+            residual = layernorm_input
+
+        if attention_bias is not None:
+            attention_bias = attention_bias.expand_as(residual)
+
+        # Bias-dropout-add.
+        with self.bias_dropout_add_exec_handler():
+            layernorm_input = bias_dropout_add_func(
+                attention_output,
+                attention_bias,
+                residual,
+                self.hidden_dropout)
+
+        # Layer norm.
+        layernorm_output = self.post_inter_attention_layernorm(layernorm_input)
+
+        return layernorm_input, layernorm_output
+
+    def retro_encoder_cross_attention(self,
+                                      retriever_output,
+                                      layernorm_input,
+                                      layernorm_output,
+                                      bias_dropout_add_func):
+        """Cross attention for Retro encoder.
+
+        Notation:
+            ns : Sequence length.
+            bs : Batch size.
+            d  : Hidden size.
+            l  : Number of chunks per sample (i.e., seq_length/chunk_length).
+            k  : Number of neighbors.
+            r  : Number of retrieved tokens (neighbors + continuation).
+        """
+
+        ns, bs, d = layernorm_output.shape # [r, bs * l * k, d]
+
+        # Divide sequence dimension into chunks.
+        chunked_outputs = layernorm_output.reshape(self.retro_retrieved_length,
+                                                   -1,
+                                                   self.retro_num_neighbors,
+                                                   d)
+        chunked_outputs_before_layer_norm = \
+            layernorm_input.reshape(self.retro_retrieved_length, -1,
+                                    self.retro_num_neighbors, d) # [r, bs*l, k, d]
+
+        # Per-chunk attention.
+        layernorm_inputs = []
+        layernorm_outputs = []
+        for k in range(self.retro_num_neighbors):
+
+            # Attention.
+            chunked_output = chunked_outputs[:,:,k].contiguous()
+            attention_output, attention_bias = \
+                self.inter_attention(
+                    chunked_output, # Q (neighbor embedding)
+                    None,
+                    encoder_output=retriever_output) # K, V (hidden act)
+
+            # Residual connection.
+            if self.apply_residual_connection_post_layernorm:
+                residual = chunked_output
+            else:
+                residual = chunked_outputs_before_layer_norm[:,:,k]
+
+            # Re-enable torch grad to enable fused optimization.
+            with torch.enable_grad():
+                layernorm_input = bias_dropout_add_func(
+                    attention_output,
+                    None if attention_bias is None else attention_bias.expand_as(residual),
+                    residual,
+                    self.hidden_dropout)
+                layernorm_inputs.append(layernorm_input)
+
+            # Layer norm.
+            layernorm_output = \
+                self.post_inter_attention_layernorm(layernorm_input)
+            layernorm_outputs.append(layernorm_output)
+
+        # Concatenate layer norms.
+        # layernorm_input : [r, k * bs * l, d]
+        # layernorm_output : [r, k * bs * l, d]
+        layernorm_input = \
+            torch.stack(layernorm_inputs, dim=1).reshape(ns, bs, d)
+        layernorm_output = \
+            torch.stack(layernorm_outputs, dim=1).reshape(ns, bs, d)
+
+        return layernorm_input, layernorm_output
+
+    def retro_decoder_cross_attention(self,
+                                      retriever_input,
+                                      retriever_output,
+                                      retriever_attn_mask,
+                                      layernorm_input,
+                                      layernorm_output,
+                                      inference_params,
+                                      bias_dropout_add_func):
+        """Cross attention for Retro decoder.
+
+        Notation:
+            ns : Sequence length.
+            bs : Batch size.
+            d  : Hidden size.
+            l  : Number of chunks per sample (i.e., seq_length/chunk_length).
+            m  : Number of tokens per chunk.
+            k  : Number of neighbors.
+            r  : Number of retrieved tokens (neighbors + continuation).
+        """
+
+        ns, bs, d = layernorm_output.shape
+        l = int(np.ceil(ns / self.retro_chunk_length))
+
+        # Retrieve neighbors.
+        if self.layer_type == LayerType.retro_decoder_with_retriever:
+            first_ns = ns % self.retro_chunk_length
+            if first_ns > 0:
+                raise Exception("test this case.")
+                first_chunk, rest_chunk = \
+                    layernorm_output[:first_ns], layernorm_output[first_ns:]
+                first_chunk = torch.nn.functional.pad(
+                    first_chunk,
+                    (0, 0, 0, 0, 0, self.retro_chunk_length - first_ns),
+                    'constant',
+                    0)
+                chunked_output = \
+                    torch.cat((first_chunk, rest_chunk), dim=0) # [l * m, bs, d]
+            else:
+                chunked_output = layernorm_output # [l * m, bs, d]
+            chunked_output = chunked_output \
+                .reshape(l, self.retro_chunk_length, bs, d) \
+                .permute(1, 2, 0, 3) \
+                .reshape(self.retro_chunk_length, bs * l, d) \
+                .contiguous()
+
+            # Get Encoder Output
+            retriever_output = self.retriever(
+                hidden_states=retriever_input,
+                attention_mask=retriever_attn_mask,
+                retriever_output=chunked_output,
+                retriever_attn_mask=retriever_attn_mask,
+                inference_params=inference_params) # [r, k * bs * l , d]
+            retriever_output = retriever_output.reshape(
+                self.retro_retrieved_length * self.retro_num_neighbors, bs * l, d) # [r * k, bs * l, d]
+
+        # Chunks.
+        pad = (ns - 1) % self.retro_chunk_length
+        attending_chunks = layernorm_output[pad:]
+        padded_chunks = torch.nn.functional.pad(
+            attending_chunks,
+            (0, 0, 0, 0, 0, self.retro_chunk_length - 1),
+            'constant', 0)
+        padded_chunked_output = padded_chunks \
+            .reshape(l, self.retro_chunk_length, bs, d) \
+            .permute(1, 2, 0, 3)
+        padded_chunked_output = padded_chunked_output.reshape(
+            self.retro_chunk_length, bs * l, d).contiguous()
+
+        # Encoder output.
+        attention_output, attention_bias = \
+            self.inter_attention(padded_chunked_output,
+                                 None,
+                                 encoder_output=retriever_output)
+
+        # Residual connection.
+        if self.apply_residual_connection_post_layernorm:
+            residual = layernorm_output
+        else:
+            residual = layernorm_input
+
+        # Re-enable torch grad to enable fused optimization.
+        with torch.enable_grad():
+            layernorm_input = bias_dropout_add_func(
+                attention_output,
+                None if attention_bias is None else attention_bias.expand_as(attention_output),
+                torch.zeros_like(attention_output),
+                self.hidden_dropout)
+            layernorm_input = layernorm_input \
+                .reshape(self.retro_chunk_length, bs, l, d) \
+                .permute(2, 0, 1, 3) # [l, m, bs, d]
+            layernorm_input = layernorm_input.reshape(self.retro_chunk_length * l, bs, d)
+            layernorm_input = torch.nn.functional.pad(
+                layernorm_input,
+                (0, 0, 0, 0, pad, 0),
+                'constant', 0)[:ns] # [ns, b, d]
+            layernorm_input = layernorm_input + residual
+
+        # Layer norm post the decoder attention
+        layernorm_output = self.post_inter_attention_layernorm(layernorm_input)
+
+        return retriever_output, layernorm_input, layernorm_output
+
+    def forward(self, hidden_states, attention_mask, enc_position_ids,
+                encoder_output=None, enc_dec_attn_mask=None,
+                retriever_input=None,
+                retriever_output=None,
+                retriever_attn_mask=None,
+                inference_params=None,
+                rotary_pos_emb=None):
+        # hidden_states: [s, b, h]
+
+        # Layer norm at the beginning of the transformer layer.
+        layernorm_output = self.input_layernorm(hidden_states)
+
+        # Self attention.
+        attention_output, attention_bias = \
+            self.self_attention(
+                layernorm_output,
+                attention_mask,
+                enc_position_ids,
+                inference_params=inference_params,
+                rotary_pos_emb=rotary_pos_emb)
+
+        # Residual connection.
+        if self.apply_residual_connection_post_layernorm:
+            residual = layernorm_output
+        else:
+            residual = hidden_states
+
+        if self.drop_path is None:
+            # jit scripting for a nn.module (with dropout) is not
+            # trigerring the fusion kernel. For now, we use two
+            # different nn.functional routines to account for varying
+            # dropout semantics during training and inference phases.
+            if self.bias_dropout_fusion:
+                if self.training:
+                    bias_dropout_add_func = bias_dropout_add_fused_train
+                else:
+                    bias_dropout_add_func = bias_dropout_add_fused_inference
+            else:
+                bias_dropout_add_func = get_bias_dropout_add(self.training)
+
+            if attention_bias is not None:
+                attention_bias = attention_bias.expand_as(residual)
+            with self.bias_dropout_add_exec_handler():
+                layernorm_input = bias_dropout_add_func(
+                    attention_output,
+                    attention_bias,
+                    residual,
+                    self.hidden_dropout)
+        else:
+            out = torch.nn.functional.dropout(attention_output + attention_bias,
+                                              p=self.hidden_dropout,
+                                              training=self.training)
+            layernorm_input = residual + self.drop_path(out)
+
+        # Layer norm post the self attention.
+        layernorm_output = self.post_attention_layernorm(layernorm_input)
+
+        # Cross attention.
+        if self.layer_type == LayerType.encoder:
+            pass
+        elif self.layer_type == LayerType.decoder:
+            layernorm_input, layernorm_output = \
+                self.default_decoder_cross_attention(
+                    encoder_output,
+                    enc_dec_attn_mask,
+                    layernorm_input,
+                    layernorm_output,
+                    bias_dropout_add_func)
+        elif self.layer_type == LayerType.retro_encoder:
+            layernorm_input, layernorm_output = \
+                self.retro_encoder_cross_attention(
+                    retriever_output,
+                    layernorm_input,
+                    layernorm_output,
+                    bias_dropout_add_func)
+        elif self.layer_type in (LayerType.retro_decoder,
+                                 LayerType.retro_decoder_with_retriever):
+            retriever_output, layernorm_input, layernorm_output = \
+                self.retro_decoder_cross_attention(
+                    retriever_input,
+                    retriever_output,
+                    retriever_attn_mask,
+                    layernorm_input,
+                    layernorm_output,
+                    inference_params,
+                    bias_dropout_add_func)
+        else:
+            raise Exception("Unsupported layer type, '%s'." %
+                            self.layer_type.name)
+
+        # MLP.
+        mlp_output, mlp_bias = self.mlp(layernorm_output)
+        # Second residual connection.
+        if self.apply_residual_connection_post_layernorm:
+            residual = layernorm_output
+        else:
+            residual = layernorm_input
+
+        if self.drop_path is None:
+            if mlp_bias is not None:
+                mlp_bias = mlp_bias.expand_as(residual)
+            with self.bias_dropout_add_exec_handler():
+                output = bias_dropout_add_func(
+                    mlp_output,
+                    mlp_bias,
+                    residual,
+                    self.hidden_dropout)
+
+            # Jit compiled function creates 'view' tensor. This tensor
+            # potentially gets saved in the MPU checkpoint function context,
+            # which rejects view tensors. While making a viewless tensor here
+            # won't result in memory savings (like the data loader, or
+            # p2p_communication), it serves to document the origin of this
+            # 'view' tensor.
+            output = core.utils.make_viewless_tensor(inp = output,
+                                                     requires_grad = output.requires_grad,
+                                                     keep_graph = True)
+
+        else:
+            if mlp_bias is not None:
+                mlp_output = mlp_output + mlp_bias
+            out = torch.nn.functional.dropout(mlp_output,
+                                              p=self.hidden_dropout,
+                                              training=self.training)
+            output = residual + self.drop_path(out)
+
+        if self.layer_type == LayerType.retro_decoder_with_retriever:
+            return output, retriever_output
+        else:
+            return output
+
+
 class NoopTransformerLayer(MegatronModule):
     """A single 'no-op' transformer layer.
 
@@ -1526,37 +2390,15 @@ class ParallelTransformer(MegatronModule):
                     drop_path_rate=self.drop_path_rates[layer_number - 1])
             else:
                 # This argument is only available from TE v0.10 onwards.
-                activation_kwarg = {}
-                if self.transformer_engine_v_0_10:
-                    activation_kwarg["activation"] = "swiglu" if args.swiglu else "gelu"
-                return transformer_engine.pytorch.TransformerLayer(
-                    config.hidden_size,
-                    config.ffn_hidden_size,
-                    config.num_attention_heads,
-                    layernorm_epsilon=config.layernorm_epsilon,
-                    hidden_dropout=config.hidden_dropout,
-                    attention_dropout=config.attention_dropout,
-                    init_method=config.init_method,
-                    output_layer_init_method=config.output_layer_init_method,
-                    layer_number=layer_number,
-                    kv_channels=config.kv_channels,
-                    self_attn_mask_type=self_attn_mask_type.name,
-                    tp_group=mpu.get_tensor_model_parallel_group(),
-                    get_rng_state_tracker=tensor_parallel.get_cuda_rng_tracker,
-                    fuse_wgrad_accumulation=config.gradient_accumulation_fusion,
-                    apply_query_key_layer_scaling=config.apply_query_key_layer_scaling,
-                    attention_softmax_in_fp32=config.attention_softmax_in_fp32,
-                    seq_length=args.seq_length,
-                    micro_batch_size=args.micro_batch_size,
-                    sequence_parallel=config.sequence_parallel,
-                    params_dtype=config.params_dtype,
-                    apply_residual_connection_post_layernorm=config.apply_residual_connection_post_layernorm,
-                    output_layernorm=False,
-                    layer_type="encoder",
-                    drop_path_rate=self.drop_path_rates[layer_number - 1],
-                    set_parallel_mode=True,
-                    fuse_qkv_params=True,
-                    **activation_kwarg)
+                current_layer_type = _get_layer_type(
+                    model_type, layer_type, self.retro_layer_numbers,
+                    layer_number)
+
+                return ParallelTransformerengineLayer(config,
+                                                      layer_number,
+                                                      layer_type=current_layer_type,
+                                                      self_attn_mask_type=self_attn_mask_type,
+                                                      drop_path_rate=self.drop_path_rates[layer_number - 1])
 
         if config.virtual_pipeline_model_parallel_size is not None:
             assert config.num_layers % config.virtual_pipeline_model_parallel_size == 0, \
@@ -1665,8 +2507,8 @@ class ParallelTransformer(MegatronModule):
                         self.distribute_saved_activations,
                         tensor_parallel.get_cuda_rng_tracker,
                         mpu.get_tensor_model_parallel_group(),
-                        hidden_states, attention_mask, enc_position_ids, encoder_output,
-                        enc_dec_attn_mask, **te_forward_kwargs)
+                        hidden_states, attention_mask, encoder_output,
+                        enc_dec_attn_mask)
                 else:
                     hidden_states = tensor_parallel.checkpoint(
                         custom(l, l + self.recompute_num_layers),
@@ -1689,7 +2531,7 @@ class ParallelTransformer(MegatronModule):
                             self.distribute_saved_activations,
                             tensor_parallel.get_cuda_rng_tracker,
                             mpu.get_tensor_model_parallel_group(),
-                            hidden_states, attention_mask, enc_position_ids, encoder_output,
+                            hidden_states, attention_mask, encoder_output,
                             enc_dec_attn_mask, **te_forward_kwargs)
                     else:
                         hidden_states = tensor_parallel.checkpoint(
@@ -1701,7 +2543,7 @@ class ParallelTransformer(MegatronModule):
                 else:
                     if self.transformer_impl == 'transformer_engine':
                         hidden_states = custom(l, l + 1)(
-                            hidden_states, attention_mask, enc_position_ids, encoder_output,
+                            hidden_states, attention_mask, encoder_output,
                             enc_dec_attn_mask, **te_forward_kwargs)
                     else:
                         hidden_states = custom(l, l + 1)(
@@ -1737,7 +2579,7 @@ class ParallelTransformer(MegatronModule):
         if inference_params:
             assert self.recompute_granularity is None, \
                 'inference does not work with activation checkpointing'
-
+        
         if not self.pre_process:
             # See set_input_tensor()
             hidden_states = self.input_tensor
@@ -1801,8 +2643,8 @@ class ParallelTransformer(MegatronModule):
                     }
 
                     if self.transformer_impl == 'transformer_engine':
-                        forward_kwargs['is_first_microbatch'] = is_first_microbatch
-                        forward_kwargs['checkpoint_core_attention'] = self.checkpoint_core_attention
+                        # forward_kwargs['is_first_microbatch'] = is_first_microbatch
+                        # forward_kwargs['checkpoint_core_attention'] = self.checkpoint_core_attention
                         if self.transformer_engine_v_0_10:
                             forward_kwargs['rotary_pos_emb'] = rotary_pos_emb
                     else:
@@ -1813,7 +2655,6 @@ class ParallelTransformer(MegatronModule):
 
                     for index in range(self.num_layers):
                         layer = self._get_layer(index)
-
                         hidden_states = layer(
                             hidden_states,
                             attention_mask,
