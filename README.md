@@ -181,6 +181,14 @@ docker exec -it your_name bash
 可以使用[replicate.com/ieit-yuan](https://replicate.com/ieit-yuan)进行yuan2.0的线上api调用 ，具体操作方式参考replicate的官方文档。在LangChain和llamaIndex中使用replicate的教程可参考：https://python.langchain.com/docs/integrations/providers/replicate 和 https://docs.llamaindex.ai/en/stable/api_reference/llms/replicate.html。
 
 
+## 推理资源需求
+| 模型规格 | 最低GPU显存（推理） |  最低GPU显存（微调）
+| :---------: |:-----------:|:--------------:|
+| 2B |     6GB     | 80GB |
+| 51B |   4*80GB    | 32*80GB | 
+| 102B |   8*80GB    | 96*80GB | 
+
+
 ## 源2.0 + 源Chat部署
 
 使用 [源Chat（YuanChat）](https://github.com/IEIT-Yuan/YuanChat) 可以快速构建基于源2.0大模型的对话应用，源Chat 提供了一种简单的交互方式，支持在linux部署和Windows 操作系统上的便捷部署。
