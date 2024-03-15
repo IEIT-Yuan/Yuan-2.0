@@ -37,7 +37,7 @@ docker exec -it your_dockername bash
 ### Step 2. 通过tensorrtllm_backend的Dockerfile安装依赖和编译环境
 
 在docker中，你可以按照下面描述的步骤配置你的环境。
-注意：step7如果出现编译报错，我们提供了补充文件[百度网盘下载地址链接](https://pan.baidu.com/s/1BJDzAdWjYqu2iH-hkg_osA?pwd=jr4v)，再进行尝试。
+
 
 ```bash
 # 进入你的工作目录
@@ -84,12 +84,16 @@ export TRT_ROOT=/usr/local/tensorrt
 export PATH="/usr/local/cmake/bin:${PATH}"
 
 # Step7: 安装tensorrt_llm
+cd Yuan-2.0 #进入Yuan-2.0目录下
+git submodule init
+git sunmodule update #更新submodules
+cd 3rdparty/tensorrtllm_backend/  #回到tensorrtllm_backend目录
 mkdir app # 在tensorrtllm_backend目录下新建文件夹
 cd app
 cp -r Yuan-2.0/3rdparty/TensorRT-LLM ./ # 将整个TensorRT-LLM文件拷贝至tensorrtllm_backend/app下
 cd TensorRT-LLM # 进入tensorrtllm_backend/app/TensorRT-LLM目录
 python3 scripts/build_wheel.py --trt_root="${TRT_ROOT}" -i -c # 安装tensorrt_llm
-# 若遇到编译报错，请将百度网盘中的文件解压在tensorrtllm_backend/app/TensorRT-LLM目录下再进行尝试
+
 
 # Step8: 安装tensorrtllm_backend
 cd .. # 回到app目录下
