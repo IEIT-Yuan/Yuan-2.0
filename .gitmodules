@@ -1,0 +1,13 @@
+[submodule "3rdparty/cutlass"]
+	path = 3rdparty/cutlass
+	url = https://github.com/NVIDIA/cutlass.git
+[submodule "3rdparty/json"]
+	path = 3rdparty/json
+	url = https://github.com/nlohmann/json.git
+[submodule "3rdparty/cxxopts"]
+	path = 3rdparty/cxxopts
+	url = https://github.com/jarro2783/cxxopts
+	branch = v3.1.1
+[submodule "3rdparty/NVTX"]
+	path = 3rdparty/NVTX
+	url = https://github.com/NVIDIA/NVTX.git
