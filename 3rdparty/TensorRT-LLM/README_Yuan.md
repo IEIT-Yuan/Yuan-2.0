@@ -97,22 +97,22 @@ python3 scripts/build_wheel.py --trt_root="${TRT_ROOT}" -i -c # 安装tensorrt_l
 
 # Step8: 安装tensorrtllm_backend
 cd .. # 回到app目录下
-cp ../inflight_batcher_llm ./ # 复制此inflight_batcher_llm文件夹至app下 
+cp -r ../inflight_batcher_llm ./ # 复制此inflight_batcher_llm文件夹至app下 
 mv TensorRT-LLM tensorrt_llm # 将TensorRT-LLM重命名为tensorrt_llm
 cd inflight_batcher_llm
 bash scripts/build.sh # 构建tensorrtllm_backend
 
 # Step9: 安装tensorrt_llm wheel
-cd Yuan-2.0/3rdparty/TensorRT_LLM/build
+cd Yuan-2.0/3rdparty/tensorrtllm_backend/app/tensorrt_llm/build
 pip3 install tensorrt_llm-0.7.1-cp310-cp310-linux_x86_64.whl
 
 # Step10: 拷贝相关文件至/opt/tritonserver/backend/tensorrtllm目录下
 mkdir /opt/tritonserver/backends/tensorrtllm
 cd ../../../ # 回到/tensorrtllm_backend目录
-cp /app/tensorrt_llm/cpp/build/tensorrt_llm/libtensorrt_llm.so /opt/tritonserver/backend/tensorrtllm
-cp /app/tensorrt_llm/cpp/build/tensorrt_llm/plugins/libnvinfer_plugin_tensorrt_llm.so* /opt/tritonserver/backend/tensorrtllm
-cp /app/tensorrt_llm/tensorrt_llm/libs/ /opt/tritonserver/backend/tensorrtllm
-cp /app/inflight_batcher_llm/build/libtriton_tensorrtllm.so /opt/tritonserver/backend/tensorrtllm
+cp app/tensorrt_llm/cpp/build/tensorrt_llm/libtensorrt_llm.so /opt/tritonserver/backends/tensorrtllm
+cp app/tensorrt_llm/cpp/build/tensorrt_llm/plugins/libnvinfer_plugin_tensorrt_llm.so* /opt/tritonserver/backends/tensorrtllm
+cp app/tensorrt_llm/tensorrt_llm/libs/lib* /opt/tritonserver/backends/tensorrtllm
+cp app/inflight_batcher_llm/build/libtriton_tensorrtllm.so /opt/tritonserver/backends/tensorrtllm
 
 # 此时，您已完成运行TensorRT-LLM&tensorrtllm_backend时全部环境的配置
 # 请确保在继续下一步之前已正确完成前一步骤
