@@ -362,16 +362,6 @@ class ModelRunner:
             lf_caches=[(lf1_cache[:batch_size], lf2_cache[:batch_size]) for (lf1_cache, lf2_cache) in lf_caches] if lf_caches[0] != (None, None) else lf_caches,
             input_metadata=input_metadata,
         )
-        # if lf_caches[0] != (None, None):
-        #     # print(lf_caches[0][0][:batch_size])
-        #     # print(lf_caches[0][1][:batch_size])
-        #     # print('='*80)
-        #     # print(kv_caches[0][0][:batch_size])
-        #     # print(kv_caches[0][1][:batch_size])
-        #     lf1_cache, lf2_cache = lf_caches[23]
-        #     #print(lf1_cache.shape, lf2_cache.shape, batch_size)
-        #     #print(lf1_cache[:batch_size])
-        #     #exit()
 
         sampling_metadata = self._prepare_sample(seq_group_metadata_list,
                                                  input_metadata.prompt_lens)
@@ -411,16 +401,13 @@ class ModelRunner:
         num_layers = self.model_config.get_num_layers(self.parallel_config)
         kv_caches = [(None, None)] * num_layers
         lf_caches = [(None, None)] * num_layers
-        #kv_and_lf_caches = (kv_caches, past_lfs)
-        #self.execute_model(seqs, kv_and_lf_caches, past_lfs)
+        
         self.execute_model(seqs, kv_caches, lf_caches)
         torch.cuda.synchronize()
         return
 
     @torch.inference_mode()
-    #def capture_model(self, kv_and_lf_caches: Tuple[List[KVCache], List[LFCache]]) -> None:
     def capture_model(self, kv_caches: List[KVCache], lf_caches: List[LFCache]) -> None:
-        #kv_caches, past_lfs = kv_and_lf_caches
         assert not self.model_config.enforce_eager
         logger.info("Capturing the model for CUDA graphs. This may lead to "
                     "unexpected consequences if the model is not static. To "
