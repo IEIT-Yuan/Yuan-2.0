@@ -102,7 +102,7 @@ class LLMEngine:
             tokenizer_revision=model_config.tokenizer_revision,
             revision=model_config.revision,
             add_eos_token=False, add_bos_token=False)
-        if model_config.tokenizer == '/temp_data/LLM_test/Tensorrt-llm-yuan/yuan2B_Janus':
+        if model_config.hf_config.model_type == 'yuan':
             self.tokenizer.add_tokens(['<sep>', '<pad>', '<mask>', '<predict>', '<FIM_SUFFIX>', '<FIM_PREFIX>', '<FIM_MIDDLE>','<commit_before>','<commit_msg>','<commit_after>','<jupyter_start>','<jupyter_text>','<jupyter_code>','<jupyter_output>','<empty_output>'], special_tokens=True) 
         self.seq_counter = Counter()
 

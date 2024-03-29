@@ -744,7 +744,8 @@ if __name__ == "__main__":
         tokenizer_mode=engine_model_config.tokenizer_mode,
         trust_remote_code=engine_model_config.trust_remote_code)
     load_chat_template(args, tokenizer)
-
+    if engine_model_config.hf_config.model_type == 'yuan':
+        tokenizer.add_tokens(['<sep>', '<pad>', '<mask>', '<predict>', '<FIM_SUFFIX>', '<FIM_PREFIX>', '<FIM_MIDDLE>','<commit_before>','<commit_msg>','<commit_after>','<jupyter_start>','<jupyter_text>','<jupyter_code>','<jupyter_output>','<empty_output>'], special_tokens=True)
     # Register labels for metrics
     add_global_metrics_labels(model_name=engine_args.model)
 
