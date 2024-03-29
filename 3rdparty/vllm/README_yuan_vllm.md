@@ -42,6 +42,7 @@ pip install -e .
 ### Step 1. 准备Yuan2.0-2B的hf模型
 下载Yuan2.0-2B hugging face模型，参考地址：https://huggingface.co/IEITYuan/Yuan2-2B-hf
 
+将下载好的Yuan2.0-2B模型的ckpt移动至你的本地目录下(本案例中的路径如下：/temp_data/LLM_test/Tensorrt-llm-yuan/yuan2B_Janus)
 ### Step 2. 基于Yuan2.0-2B的vllm推理
 #### Option1:单个prompt推理
 ```bash
@@ -81,6 +82,7 @@ sampling_params = SamplingParams(max_tokens=256, temperature=0.8, top_p=0.95, st
 
 llm = LLM(model="/temp_data/LLM_test/Tensorrt-llm-yuan/yuan2B_Janus", trust_remote_code=True)
 '''
+# 注意：用多个prompt进行推理时，可能由于补padding的操作，和用单个prompt推理时结果不一样
 ```
 
 ### Step 3. 基于vllm.entrypoints.api_server部署Yuan2.0-2B
@@ -116,9 +118,8 @@ INFO 03-27 08:38:54 async_llm_engine.py:111] Finished request 1d6a3ed293ac40e2ac
 INFO:     127.0.0.1:50013 - "POST /generate HTTP/1.1" 200 OK
 ```
 #### Option 2. 基于命令脚本调用服务
+调用openai.api_server的相关脚本为yuan_api_server.py，内容如下
 ```bash
-# 相关脚本为yuan_api_server.py
-'''
 import requests
 import json
 
@@ -150,11 +151,57 @@ with open('/mnt/Yuan-2.0/3rdparty/vllm/humaneval/human-eval-gpt4-translation-fix
         outputs.append(output[0])
 print(outputs)   #可以选择打印输出还是储存到新的jsonl文件
 ...
-'''
+
 # 示例中是读取的中文版本humaneval测试集，通过批量调用推理服务并将结果保存在对应的jsonl文件中
 # 您可以代码中读取的jsonl文件路径替换为您的路径
 # 或者在此代码基础上进行修改，例如手动传入多个prompts以批量调用api_server进行推理
-
-# 运行命令脚本调用推理服务即可
+```
+修改完成后运行以下命令脚本调用推理服务即可
+```bash
 python yuan_api_server.py
+```
+### Step 4. 基于vllm.entrypoints.openai.api_server部署Yuan2.0-2B
+基于openai的api_server部署Yuan2.0-2B的步骤和step 3的步骤类似，发起服务和调用服务的方式如下：
+
+发起服务命令：
+```bash
+python -m vllm.entrypoints.openai.api_server --model=/temp_data/LLM_test/Tensorrt-llm-yuan/yuan2B_Janus/ --trust-remote-code
+```
+调用服务命令：
+```bash
+curl http://localhost:8000/v1/completions -H "Content-Type: application/json" -d '{"model": "/temp_data/LLM_test/Tensorrt-llm-yuan/yuan2B_Janus/", "prompt": "如果你是一个算法工程师，让你写一个大模型相关的规划，你应该怎么写？", "max_tokens": 300, "temperature": 1, "top_p": 0, "top_k": 1, "stop": "<eod>"}'
+```
+调用服务脚本如下：
+```bash
+import requests
+import json
+
+outputs = []
+with open('/mnt/Yuan-2.0/3rdparty/vllm/humaneval/human-eval-gpt4-translation-fixed5.jsonl', 'r', encoding='utf-8') as file:
+    for line in file:
+        data = json.loads(line)
+        prompt = data.get('prompt')
+        raw_json_data = {
+                "model": "/temp_data/LLM_test/Tensorrt-llm-yuan/yuan2B_Janus/",
+                "prompt": prompt,
+                "max_tokens": 256,
+                "temperature": 1,
+                "use_beam_search": False,
+                "top_p": 0,
+                "top_k": 1,
+                "stop": "<eod>",
+                }
+        json_data = json.dumps(raw_json_data, ensure_ascii=True)
+        headers = {
+                "Content-Type": "application/json",
+                }
+        response = requests.post(f'http://localhost:8000/v1/completions',
+                             data=json_data,
+                             headers=headers)
+        output = response.text
+        output = json.loads(output)
+        output0 = output["choices"][0]['text']
+        outputs.append(output0)
+...
+# 此脚本您需要修改"model"后的ckpt路径，其他修改方式和yuan_api_server.py一致
 ```
