@@ -531,8 +531,7 @@ async def create_completion(request: CompletionRequest, raw_request: Request):
                                            request_id,
                                            prompt_token_ids=prompt)
     else:
-        result_generator = engine.generate(prompt, sampling_params, request_id,
-                                           token_ids)
+        result_generator = engine.generate(prompt, sampling_params, request_id)
 
     # Similar to the OpenAI API, when n != best_of, we do not stream the
     # results. In addition, we do not stream the results when use beam search.
