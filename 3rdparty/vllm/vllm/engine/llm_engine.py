@@ -102,6 +102,7 @@ class LLMEngine:
             tokenizer_revision=model_config.tokenizer_revision,
             revision=model_config.revision,
             add_eos_token=False, add_bos_token=False)
+        
         if model_config.hf_config.model_type == 'yuan':
             self.tokenizer.add_tokens(['<sep>', '<pad>', '<mask>', '<predict>', '<FIM_SUFFIX>', '<FIM_PREFIX>', '<FIM_MIDDLE>','<commit_before>','<commit_msg>','<commit_after>','<jupyter_start>','<jupyter_text>','<jupyter_code>','<jupyter_output>','<empty_output>'], special_tokens=True) 
         self.seq_counter = Counter()
@@ -297,7 +298,6 @@ class LLMEngine:
         if prompt_token_ids is None:
             assert prompt is not None
             prompt_token_ids = self.tokenizer.encode(prompt)
-            #print(prompt_token_ids)
         # Create the sequences.
         block_size = self.cache_config.block_size
         seq_id = next(self.seq_counter)

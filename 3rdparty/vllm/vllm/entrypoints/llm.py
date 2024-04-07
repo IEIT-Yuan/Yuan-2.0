@@ -180,8 +180,6 @@ class LLM:
             num_requests = self.llm_engine.get_num_unfinished_requests()
             pbar = tqdm(total=num_requests, desc="Processed prompts")
         # Run the engine.
-        import time
-        start_time = time.time()
         outputs: List[RequestOutput] = []
         while self.llm_engine.has_unfinished_requests():
             step_outputs = self.llm_engine.step()
@@ -196,6 +194,4 @@ class LLM:
         # This is necessary because some requests may be finished earlier than
         # its previous requests.
         outputs = sorted(outputs, key=lambda x: int(x.request_id))
-        end_time = time.time()
-        print("inference_time_in_run_engine:", (end_time - start_time))
         return outputs

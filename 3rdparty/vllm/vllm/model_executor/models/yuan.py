@@ -29,14 +29,12 @@ from .configuration_yuan import YuanConfig
 from transformers.activations import ACT2FN
 from transformers.models.llama.modeling_llama import LlamaRMSNorm,LlamaRotaryEmbedding
 from vllm.model_executor.input_metadata import InputMetadata
-#from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.attention import PagedAttention
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.linear import (LinearMethodBase,
                                                ColumnParallelLinear,
                                                QKVParallelLinear,
                                                RowParallelLinear)
-#from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler
 from vllm.model_executor.layers.vocab_parallel_embedding import (
     VocabParallelEmbedding, ParallelLMHead)
@@ -61,10 +59,10 @@ def rotate_half(x):
 
 def apply_rotary_pos_emb(q, k, cos, sin, position):
     # The first two dimensions of cos and sin are always 1, so we can `squeeze` them.
-    cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
-    sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
-    cos = cos[position].unsqueeze(1)  # [bs, 1, seq_len, dim]
-    sin = sin[position].unsqueeze(1)  # [bs, 1, seq_len, dim]
+    cos = cos.squeeze(1).squeeze(0)
+    sin = sin.squeeze(1).squeeze(0)
+    cos = cos[position].unsqueeze(1)
+    sin = sin[position].unsqueeze(1)
     q_embed = (q * cos) + (rotate_half(q) * sin)
     k_embed = (k * cos) + (rotate_half(k) * sin)
     return q_embed, k_embed
@@ -95,7 +93,6 @@ class YuanRotaryEmbedding(torch.nn.Module):
         self.register_buffer("sin_cached", emb.sin()[None, None, :, :].to(dtype), persistent=False)
 
     def forward(self, x, seq_len=None):
-        # x: [bs, num_attention_heads, seq_len, head_size]
         if seq_len > self.max_seq_len_cached:
             self._set_cos_sin_cache(seq_len=seq_len, device=x.device, dtype=x.dtype)
 
@@ -118,7 +115,6 @@ class LocalizedFiltering(torch.nn.Module):
         self.lf_conv2d_num_pad = 0
         self.conv1 = torch.nn.Conv2d(self.embed_dim, self.embed_dim // 2, (2, 1), stride=(1, 1), padding=(self.lf_conv2d_num_pad, 0), groups=self.lf_conv2d_group)
         self.conv2 = torch.nn.Conv2d(self.embed_dim // 2, self.embed_dim, (2, 1), stride=(1, 1), padding=(self.lf_conv2d_num_pad, 0), groups=self.lf_conv2d_group)
-        #self.output_layernorm = RMSNorm(self.embed_dim)
         self.output_layernorm = LlamaRMSNorm(self.embed_dim)
 
     def forward(self, inputs, lf1_cache, lf2_cache):
@@ -268,9 +264,6 @@ class YuanAttention(nn.Module):
             lf1 = torch.zeros(lf1_cache_shape, dtype=torch.bfloat16, device='cuda')
             lf2 = torch.zeros(lf2_cache_shape, dtype=torch.bfloat16, device='cuda')
             hidden_states, lf1, lf2 = self.lf_gate(hidden_states, lf1, lf2)
-            # print('='*80)
-            # print(lf1.stride(0), lf2.stride(0), lf1.shape, lf2.shape)
-            # print(lf1)
         else:
             lf1 = lf1_cache[:bsz, :, :, :]
             lf2 = lf2_cache[:bsz, :, :, :]
@@ -309,11 +302,9 @@ class YuanDecoderLayer(nn.Module):
     def __init__(
         self,
         config: YuanConfig,
-        #layer_id,
         linear_method: Optional[LinearMethodBase] = None,
     ) -> None:
         super().__init__()
-        #self.layer_id = layer_id
         self.hidden_size = config.hidden_size
         rope_theta = getattr(config, "rope_theta", 10000)
         rope_scaling = getattr(config, "rope_scaling", None)
@@ -334,10 +325,6 @@ class YuanDecoderLayer(nn.Module):
             hidden_act=config.hidden_act,
                 linear_method=linear_method,
         )
-        # self.input_layernorm = RMSNorm(config.hidden_size,
-        #                                eps=config.rms_norm_eps)
-        # self.post_attention_layernorm = RMSNorm(config.hidden_size,
-        #                                         eps=config.rms_norm_eps)
         self.input_layernorm = LlamaRMSNorm(config.hidden_size,
                                        eps=config.rms_norm_eps)
         self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size,
@@ -350,17 +337,10 @@ class YuanDecoderLayer(nn.Module):
         kv_cache: KVCache,
         lf_cache: LFCache,
         input_metadata: InputMetadata,
-        # residual: Optional[torch.Tensor],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # Self Attention
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)
-        # if residual is None:
-        #     residual = hidden_states
-        #     hidden_states = self.input_layernorm(hidden_states)
-        # else: 
-        #     hidden_states, residual = self.input_layernorm(
-        #         hidden_states, residual)
         hidden_states = self.self_attn(
             positions=positions,
             hidden_states=hidden_states,
@@ -372,12 +352,11 @@ class YuanDecoderLayer(nn.Module):
         
         # Fully Connected
         residual = hidden_states
-        #hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
         hidden_states = residual + hidden_states
 
-        return hidden_states #, residual
+        return hidden_states
 
 
 class YuanModel(nn.Module):
@@ -399,7 +378,6 @@ class YuanModel(nn.Module):
             YuanDecoderLayer(config, linear_method)
             for _ in range(config.num_hidden_layers)
         ])
-        #self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
     def forward(
@@ -412,21 +390,14 @@ class YuanModel(nn.Module):
     ) -> torch.Tensor:
         hidden_states = self.embed_tokens(input_ids)
         residual = None
-        #for i, (layer, lf1_past, lf2_past) in enumerate(zip(self.layers, lf1_cache_params.past_lf, lf2_cache_params.past_lf,)):
         for i, layer in enumerate(self.layers):
-            # if input_metadata.is_prompt:
-            #     k_cache, v_cache = kv_caches[i]
-            #     lf1_cache, lf2_cache = lf_caches[i]
-            # hidden_states, residual = layer(
             hidden_states = layer(
                 positions,
                 hidden_states,
                 kv_caches[i],
                 lf_caches[i],
                 input_metadata,
-                # residual,
             )
-        #hidden_states, _ = self.norm(hidden_states, residual)
         hidden_states = self.norm(hidden_states)
         return hidden_states
 
@@ -470,16 +441,6 @@ class YuanForCausalLM(nn.Module):
                      cache_dir: Optional[str] = None,
                      load_format: str = "auto",
                      revision: Optional[str] = None):
-        '''stacked_params_mapping = [
-            # (param_name, shard_name, shard_id)
-            ("q_proj", "q_proj", "q"),
-            ("k_proj", "k_proj", "k"),
-            ("v_proj", "v_proj", "v"),
-            ("up_proj", "up_proj", 0),
-            ("gate_proj", "gate_proj", 1),
-            ("down_proj", "down_proj", 2),
-            ("lf_gate", "lf_gate", "lf"),
-        ]'''
         params_dict = dict(self.named_parameters())
         for name, loaded_weight in hf_model_weights_iterator(
                 model_name_or_path, cache_dir, load_format, revision):
@@ -490,19 +451,6 @@ class YuanForCausalLM(nn.Module):
                 # Models trained using ColossalAI may include these tensors in
                 # the checkpoint. Skip them.
                 continue
-            '''for (param_name, weight_name, shard_id) in stacked_params_mapping:
-                if weight_name not in name:
-                    continue
-                name = name.replace(weight_name, param_name)
-                # Skip loading extra bias for GPTQ models.
-                if name.endswith(".bias") and name not in params_dict:
-                    continue
-                param = params_dict[name]
-                weight_loader = param.weight_loader
-                weight_loader(param, loaded_weight, shard_id)
-                break
-            else:'''
-                # Skip loading extra bias for GPTQ models.
             if name.endswith(".bias") and name not in params_dict:
                 continue
             param = params_dict[name]
