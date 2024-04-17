@@ -35,6 +35,8 @@ class CacheEngine:
         self.head_size = model_config.get_head_size()
         self.num_layers = model_config.get_num_layers(parallel_config)
         self.num_heads = model_config.get_num_kv_heads(parallel_config)
+
+        self.total_num_heads = self.model_config.hf_config.num_attention_heads
         self.dtype = model_config.dtype
 
         self.block_size = cache_config.block_size
@@ -70,13 +72,13 @@ class CacheEngine:
     
     def get_lf1_block_shape(self) -> Tuple[int, int, int]: #Can past_lf1 & past_lf2 set same block shape?
         return (
-            self.num_heads * self.head_size,
+            self.total_num_heads * self.head_size,
             1, 1
             )
 
     def get_lf2_block_shape(self) -> Tuple[int, int, int]:
         return (
-            self.num_heads * self.head_size // 2,
+            self.total_num_heads * self.head_size // 2,
             1, 1
             )
 
