@@ -23,6 +23,8 @@
 """Inference-only LLaMA model compatible with HuggingFace weights."""
 from typing import Any, Dict, List, Optional, Tuple
 import copy
+import math
+import numpy as np
 import torch
 from torch import nn
 from .configuration_yuan import YuanConfig
@@ -49,6 +51,101 @@ from vllm._C import cache_ops
 
 KVCache = Tuple[torch.Tensor, torch.Tensor]
 LFCache = Tuple[torch.Tensor, torch.Tensor]
+
+
+# Inverse dim formula to find dim based on number of rotations
+def _yarn_find_correction_dim(num_rotations, dim, base=10000, max_position_embeddings=2048):
+    return (dim * math.log(max_position_embeddings/(num_rotations * 2 * math.pi)))/(2 * math.log(base))
+
+# Find dim range bounds based on rotations
+def _yarn_find_correction_range(low_rot, high_rot, dim, base=10000, max_position_embeddings=2048):
+    low = math.floor(_yarn_find_correction_dim(
+        low_rot, dim, base, max_position_embeddings))
+    high = math.ceil(_yarn_find_correction_dim(
+        high_rot, dim, base, max_position_embeddings))
+    return max(low, 0), min(high, dim-1)  # Clamp values just in case
+
+def _yarn_linear_ramp_mask(min, max, dim):
+    if min == max:
+        max += 0.001  # Prevent singularity
+
+    linear_func = (torch.arange(dim, dtype=torch.float32) - min) / (max - min)
+    ramp_func = torch.clamp(linear_func, 0, 1)
+    return ramp_func
+
+def _yarn_get_mscale(scale=1):
+    if scale <= 1:
+        return 1.0
+    return 0.1 * math.log(scale) + 1.0
+
+
+class LlamaYaRNScaledRotaryEmbedding(torch.nn.Module):
+    def __init__(self, dim, max_position_embeddings=8192, base=1000000, scale=1, original_max_position_embeddings=8192, extrapolation_factor=1, attn_factor=1, beta_fast=32, beta_slow=1, finetuned=False, device=None):
+        super().__init__()
+
+        self.dim = dim
+        self.max_position_embeddings = max_position_embeddings
+        self.base = base
+        self.scale = scale
+        self.original_max_position_embeddings = original_max_position_embeddings
+        self.extrapolation_factor = extrapolation_factor
+        self.attn_factor = attn_factor
+        self.beta_fast = beta_fast
+        self.beta_slow = beta_slow
+
+        self.revised_yarn(device)
+
+        # Build here to make `torch.jit.trace` work.
+        self.max_seq_len_cached = max_position_embeddings
+
+        t = np.arange(self.max_seq_len_cached, dtype=np.float64)
+        t = torch.tensor(t, device=self.inv_freq.device, dtype=torch.float64)
+        freqs = torch.outer(t, self.inv_freq.to(device=t.device).to(t.dtype))
+
+        # Different from paper, but it uses a different permutation in order to obtain the same calculation
+        emb = torch.cat((freqs, freqs), dim=-1)
+        dtype = torch.get_default_dtype()
+
+        self.register_buffer("cos_cached", (emb.cos() * self.mscale)[None, None, :, :].to(dtype), persistent=False)
+        self.register_buffer("sin_cached", (emb.sin() * self.mscale)[None, None, :, :].to(dtype), persistent=False)
+
+    def forward(self, x, seq_len=None):
+        if seq_len > self.max_seq_len_cached:
+            self.max_seq_len_cached = seq_len
+            t = torch.arange(self.max_seq_len_cached, device=x.device, dtype=self.inv_freq.dtype)
+            freqs = torch.einsum("i,j->ij", t, self.inv_freq)
+            # Different from paper, but it uses a different permutation in order to obtain the same calculation
+            emb = torch.cat((freqs, freqs), dim=-1).to(x.device)
+
+            self.register_buffer("cos_cached", (emb.cos() * self.mscale)[None, None, :, :].to(x.dtype), persistent=False)
+            self.register_buffer("sin_cached", (emb.sin() * self.mscale)[None, None, :, :].to(x.dtype), persistent=False)
+        return (
+            self.cos_cached[:, :, :, ...].to(dtype=x.dtype),
+            self.sin_cached[:, :, :, ...].to(dtype=x.dtype),
+        )
+
+    def yarn(self, device):
+        pos_freqs = self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim)
+        inv_freq_extrapolation = 1.0 / pos_freqs
+        inv_freq_interpolation = 1.0 / (self.scale * pos_freqs)
+
+        low, high = _yarn_find_correction_range(self.beta_fast, self.beta_slow, self.dim, self.base, self.original_max_position_embeddings)
+        inv_freq_mask = (1 - _yarn_linear_ramp_mask(low, high, self.dim // 2).float().to(device)) * self.extrapolation_factor
+        inv_freq = inv_freq_interpolation * (1 - inv_freq_mask) + inv_freq_extrapolation * inv_freq_mask
+
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+        self.mscale = float(_yarn_get_mscale(self.scale) * self.attn_factor)
+
+    def revised_yarn(self, device):
+        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
+
+        low, high = _yarn_find_correction_range(self.beta_fast, self.beta_slow, self.dim, self.base, self.original_max_position_embeddings)
+        inv_freq_mask = (1 - _yarn_linear_ramp_mask(low, high, self.dim // 2).float().to(device)) * self.extrapolation_factor
+
+        inv_freq = inv_freq / ((1-inv_freq_mask)*self.scale + inv_freq_mask)
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+        self.mscale = float(_yarn_get_mscale(self.scale) * self.attn_factor)
+
 
 def rotate_half(x):
     """Rotates half the hidden dims of the input."""
@@ -184,6 +281,7 @@ class YuanAttention(nn.Module):
         rope_theta: float = 10000,
         num_kv_heads=None,
         head_size=None,
+        use_yarn=False,
         rope_scaling: Optional[Dict[str, Any]] = None,
         max_position_embeddings: int = 8192,
         linear_method: Optional[LinearMethodBase] = None,
@@ -197,12 +295,8 @@ class YuanAttention(nn.Module):
         self.num_heads = self.total_num_heads // tp_size
         self.total_num_kv_heads = num_kv_heads
         if self.total_num_kv_heads >= tp_size:
-            # Number of KV heads is greater than TP size, so we partition
-            # the KV heads across multiple tensor parallel GPUs.
             assert self.total_num_kv_heads % tp_size == 0
         else:
-            # Number of KV heads is less than TP size, so we replicate
-            # the KV heads across multiple tensor parallel GPUs.
             assert tp_size % self.total_num_kv_heads == 0
         self.num_kv_heads = max(1, self.total_num_kv_heads // tp_size)
         self.head_dim = hidden_size // self.total_num_heads
@@ -212,15 +306,9 @@ class YuanAttention(nn.Module):
         self.rope_theta = rope_theta
         self.max_position_embeddings = max_position_embeddings
         self.eps = 1e-6
-        self.q_proj = ColumnParallelLinear(
+        self.qk_proj = ColumnParallelLinear(
             hidden_size,
-            self.total_num_heads * self.head_dim,
-            bias=False,
-            linear_method=linear_method,
-        )
-        self.k_proj = ColumnParallelLinear(
-            hidden_size,
-            self.total_num_heads * self.head_dim,
+            2 * self.total_num_heads * self.head_dim,
             bias=False,
             linear_method=linear_method,
         )
@@ -238,8 +326,10 @@ class YuanAttention(nn.Module):
         )
         
         self.lf_gate = LocalizedFiltering(self.hidden_size)
-        self.rotary_emb = YuanRotaryEmbedding(self.head_dim, max_position_embeddings=self.max_position_embeddings)
-        
+        if use_yarn:
+            self.rotary_emb = LlamaYaRNScaledRotaryEmbedding(self.head_dim, max_position_embeddings=1024**2, scale=128, original_max_position_embeddings=8192)
+        else:
+            self.rotary_emb = YuanRotaryEmbedding(self.head_dim, max_position_embeddings=self.max_position_embeddings)
         self.attn = PagedAttention(self.num_heads,
                                    self.head_dim,
                                    self.scaling,
@@ -277,15 +367,12 @@ class YuanAttention(nn.Module):
                 input_metadata.slot_mapping.flatten(),
             )
 
-        q, _ = self.q_proj(hidden_states)
-        k, _ = self.k_proj(hidden_states)
-        qk = torch.cat([q, k], dim=-1)
+        qk, _ = self.qk_proj(hidden_states)
         qk = qk.view(qk.shape[0], qk.shape[1], self.num_heads, int(qk.shape[-1] // self.num_heads))
         (q, k) = torch.chunk(qk, 2, dim=-1)
         q = q.permute([0, 2, 1, 3])
         k = k.permute([0, 2, 1, 3])
-        
-        cos, sin = self.rotary_emb(v, seq_len=1000)
+        cos, sin = self.rotary_emb(v, seq_len=1048576)
         q, k = apply_rotary_pos_emb(q, k , cos, sin, positions)
         q = q.transpose(1, 2).contiguous().view(bsz, -1, self.num_heads * self.head_dim)
         k = k.transpose(1, 2).contiguous().view(bsz, -1, self.num_heads * self.head_dim)
@@ -307,6 +394,7 @@ class YuanDecoderLayer(nn.Module):
         super().__init__()
         self.hidden_size = config.hidden_size
         rope_theta = getattr(config, "rope_theta", 10000)
+        use_yarn = getattr(config, "use_yarn", False)
         rope_scaling = getattr(config, "rope_scaling", None)
         max_position_embeddings = getattr(config, "max_position_embeddings",
                                           8192)
@@ -314,6 +402,7 @@ class YuanDecoderLayer(nn.Module):
             hidden_size=self.hidden_size,
             num_heads=config.num_attention_heads,
             rope_theta=rope_theta,
+            use_yarn=use_yarn,
             rope_scaling=rope_scaling,
             max_position_embeddings=max_position_embeddings,
             linear_method=linear_method,
@@ -442,14 +531,19 @@ class YuanForCausalLM(nn.Module):
                      load_format: str = "auto",
                      revision: Optional[str] = None):
         params_dict = dict(self.named_parameters())
+        q_projs, k_projs= {}, {}
         for name, loaded_weight in hf_model_weights_iterator(
                 model_name_or_path, cache_dir, load_format, revision):
             if "rotary_emb.inv_freq" in name:
                 continue
             if ("rotary_emb.cos_cached" in name
                     or "rotary_emb.sin_cached" in name):
-                # Models trained using ColossalAI may include these tensors in
-                # the checkpoint. Skip them.
+                continue
+            if 'q_proj' in name:
+                q_projs[name] = loaded_weight
+                continue
+            if 'k_proj' in name:
+                k_projs[name] = loaded_weight
                 continue
             if name.endswith(".bias") and name not in params_dict:
                 continue
@@ -457,4 +551,13 @@ class YuanForCausalLM(nn.Module):
             weight_loader = getattr(param, "weight_loader",
                                     default_weight_loader)
             weight_loader(param, loaded_weight)
+        for i in range(self.config.num_hidden_layers):
+            name = f'model.layers.{i}.self_attn.qk_proj.weight'
+            q_name = f'model.layers.{i}.self_attn.q_proj.weight'
+            k_name = f'model.layers.{i}.self_attn.k_proj.weight'
+            qk_weight = torch.cat([q_projs[q_name], k_projs[k_name]], dim=0)
+            param = params_dict[name]
+            weight_loader = getattr(param, "weight_loader",
+                                    default_weight_loader)
 
+            weight_loader(param, qk_weight)
