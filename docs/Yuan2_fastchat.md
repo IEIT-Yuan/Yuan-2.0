@@ -331,33 +331,79 @@ python3 -m fastchat.serve.model_worker --model-path PATH-TO_CHATMODELS --host 0.
 python3 -m fastchat.serve.gradio_web_server --host 0.0.0.0 --port 映射的IP端口号
 ```
 - OpenAI-Compatible RESTful APIs
-```angular2html
 
-python3 -m fastchat.serve.controller --host 0.0.0.0 &
-CUDA_VISIBLE_DEVICES=0 python3 -m fastchat.serve.model_worker --model-path PATH-TO_CHATMODELS --host 0.0.0.0 --port 31000 --worker http://0.0.0.0:31000 &
-python3 -m fastchat.serve.openai_api_server --host 0.0.0.0 --port 1234
+关于安装`fastchat`及相关依赖，可以执行:
+```shell
+pip3 install "fschat[model_worker,webui]"
+pip3 install transformers==4.36.2 einops==0.7.0 gradio==3.50.2 gradio_client==0.6.1 pydantic==1.10.13
+```
 
-#client 调用
-import openai
+在正确安装完`fastchat`之后，可以参考[fastchat openai api启动脚本](../examples/fastchat_openai_server_engine.sh), 修改脚本里HOST、PORT、MODEL_PATH等内容：
+```shell
+CONTROLLER_HOST="0.0.0.0"
+CONTROLLER_PORT=8503
 
-openai.api_key = "EMPTY"
-openai.base_url = "http://0.0.0.0:1234/v1/"
+MODEL_WORKER_HOST="0.0.0.0"
+MODEL_WORKER_PORT=8504
 
-model = "yuan2-2B"
-prompt = "Once upon a time"
+API_SERVER_HOST="0.0.0.0"
+API_SERVER_PORT=8505
 
-# create a completion
-completion = openai.completions.create(model=model, prompt=prompt, max_tokens=64)
-# print the completion
-print(prompt + completion.choices[0].text)
+MODEL_PATH="/mnt/models/Yuan2-2B-Mars-hf/"
+```
+启动完毕后，验证：
+```shell
+# cURL或者浏览器访问 http://<api_server_host>:<api_server_port>/v1/models 确保结果中有一个类似的模型：
+{
+    "object": "list",
+    "data": [
+        {
+            "id": "yuan2",
+            "object": "model",
+            "created": 1713955516,
+            "owned_by": "fastchat",
+            "root": "yuan2",
+            "parent": null,
+            "permission": [
+                {
+                    "id": "modelperm-KT7CstuH8yLHFWWiFzVpkd",
+                    "object": "model_permission",
+                    "created": 1713955516,
+                    "allow_create_engine": false,
+                    "allow_sampling": true,
+                    "allow_logprobs": true,
+                    "allow_search_indices": true,
+                    "allow_view": true,
+                    "allow_fine_tuning": false,
+                    "organization": "*",
+                    "group": null,
+                    "is_blocking": false
+                }
+            ]
+        }
+    ]
+}
+```
+使用`openai`客户端调用:
+```python
+from openai import OpenAI
 
-# create a chat completion
-completion = openai.chat.completions.create(
-          model=model,
-            messages=[{"role": "user", "content": "Hello! What is your name?"}]
-            )
-# print the completion
-print(completion.choices[0].message.content)
+client = OpenAI(
+    api_key="EMPTY",
+    base_url="http://<api_server_host>:<api_server_port>/v1",
+)
 
+completion = client.chat.completions.create(
+    model="yuan2",
+    messages=[
+        {"role": "system", "content": "你是一个私人助手，能帮我解决很多问题。"},
+        {"role": "user", "content": "你好!"}
+    ]
+)
+
+print(completion.choices[0].message)
+
+# output
+# ChatCompletionMessage(content='你好！很高兴为你提供帮助。请问有什么我可以为你做的吗？', role='assistant', function_call=None, tool_calls=None)
 ```
 >我们可以在[langchain](https://github.com/langchain-ai/langchain)中[使用OpenAI-Compatible RESTful APIs完成基于LLM的应用构建。](https://github.com/lm-sys/FastChat/blob/main/docs/langchain_integration.md)
