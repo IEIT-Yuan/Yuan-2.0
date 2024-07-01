@@ -11,3 +11,4 @@ fastapi
 uvicorn[standard]
 pydantic == 1.10.13  # Required for OpenAI server.
 aioprometheus[starlette]
+setuptools == 69.5.1
